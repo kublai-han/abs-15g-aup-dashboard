@@ -1,0 +1,7 @@
+aup_data.db
+__pycache__/
+*.pyc
+*.pyo
+logs/
+*.png
+*.zip
