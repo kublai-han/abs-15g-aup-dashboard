@@ -105,6 +105,16 @@ st.markdown(
             max-width: 100% !important;
         }
 
+        /* ── Page-wide content constraint (side margins like creditflowresearch.com) ── */
+        .page-wrapper {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 3rem;
+        }
+        @media (max-width: 900px) {
+            .page-wrapper { padding: 0 1.25rem; }
+        }
+
         /* ── Top header bar ── */
         .finsight-header {
             background: #1e1e3f;
@@ -184,9 +194,39 @@ st.markdown(
 
         /* ── Main content wrapper ── */
         .finsight-content {
-            padding: 1.5rem 2rem;
+            padding: 1.5rem 0;
             background: #0d0d1a;
         }
+
+        /* ── Search bar with magnifying glass ── */
+        .search-wrapper {
+            position: relative;
+            margin-bottom: 1.25rem;
+        }
+        .search-wrapper svg {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64748b;
+            pointer-events: none;
+            width: 15px;
+            height: 15px;
+        }
+        .search-wrapper input[type="text"] {
+            width: 100%;
+            box-sizing: border-box;
+            background: #141428;
+            border: 1px solid #2d2d5e;
+            border-radius: 6px;
+            padding: 0.5rem 0.9rem 0.5rem 2.2rem;
+            color: #e2e8f0;
+            font-size: 0.88rem;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .search-wrapper input[type="text"]::placeholder { color: #64748b; }
+        .search-wrapper input[type="text"]:focus { border-color: #7b5ea7; }
 
         /* ── Section heading ── */
         .finsight-section-title {
@@ -705,11 +745,13 @@ last_updated_str = now_utc.strftime("%d %b %Y %H:%M UTC")
 st.markdown(
     f"""
     <div class="finsight-header">
-        <div class="finsight-logo">
-            <span class="finsight-logo-badge">ABS</span>ABS-15G AUP Monitor
+        <div class="page-wrapper" style="display:flex;align-items:center;gap:1.25rem;width:100%;padding-top:0;padding-bottom:0;">
+            <div class="finsight-logo">
+                <span class="finsight-logo-badge">ABS</span>ABS-15G AUP Monitor
+            </div>
+            <div class="header-spacer"></div>
+            <div class="finsight-updated-badge">Last Updated: {last_updated_str}</div>
         </div>
-        <div class="header-spacer"></div>
-        <div class="finsight-updated-badge">Last Updated: {last_updated_str}</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -733,7 +775,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # ===========================================================================
 
 with tab1:
-    st.markdown('<div class="finsight-content">', unsafe_allow_html=True)
+    st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
 
     # --- Summary metrics ---
     all_filings = db.get_filings(limit=10_000, db_path=DB_PATH) if DB_PATH.exists() else []
@@ -875,7 +917,7 @@ with tab1:
         df_issuers = pd.DataFrame(rows)
         st.html(_table_html(df_issuers))
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 # ===========================================================================
@@ -883,7 +925,7 @@ with tab1:
 # ===========================================================================
 
 with tab2:
-    st.markdown('<div class="finsight-content">', unsafe_allow_html=True)
+    st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
     st.markdown('<div class="finsight-section-title">Issuer Profiles</div>', unsafe_allow_html=True)
 
     issuer_options = {v["name"]: k for k, v in ISSUERS.items()}
@@ -985,7 +1027,7 @@ with tab2:
         df_res = pd.DataFrame(result_rows)
         st.dataframe(df_res, use_container_width=True, hide_index=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 # ===========================================================================
@@ -993,7 +1035,7 @@ with tab2:
 # ===========================================================================
 
 with tab3:
-    st.markdown('<div class="finsight-content">', unsafe_allow_html=True)
+    st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
     st.markdown('<div class="finsight-section-title">AUP Results — Cross-Issuer Analysis</div>', unsafe_allow_html=True)
 
     if not _db_ready():
@@ -1015,10 +1057,45 @@ with tab3:
             name_map = {k: v["name"] for k, v in ISSUERS.items()}
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 
-            # --- Search bar ---
+            # --- Search bar with magnifying glass icon ---
+            st.markdown(
+                """
+                <style>
+                div[data-testid="stTextInput"] input {
+                    padding-left: 2.2rem !important;
+                    background: #141428 !important;
+                    border: 1px solid #2d2d5e !important;
+                    border-radius: 6px !important;
+                    color: #e2e8f0 !important;
+                }
+                div[data-testid="stTextInput"] input:focus {
+                    border-color: #7b5ea7 !important;
+                    box-shadow: none !important;
+                }
+                div[data-testid="stTextInput"] {
+                    position: relative;
+                }
+                div[data-testid="stTextInput"]::before {
+                    content: "";
+                    position: absolute;
+                    left: 0.72rem;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    width: 15px;
+                    height: 15px;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E");
+                    background-repeat: no-repeat;
+                    background-size: contain;
+                    pointer-events: none;
+                    z-index: 10;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
             search_query = st.text_input(
                 "Search",
-                placeholder="Search by issuer, deal name, auditor, finding details…",
+                placeholder="🔍  Search by issuer, deal name, auditor, finding details…",
                 label_visibility="collapsed",
             )
             if search_query:
@@ -1056,7 +1133,7 @@ with tab3:
                     "MinRate", min_value=0.0, max_value=100.0, value=0.0,
                     step=0.1, label_visibility="collapsed"
                 )
-            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("</div></div>", unsafe_allow_html=True)
 
             # Apply filters
             df_filtered = df.copy()
@@ -1240,7 +1317,7 @@ with tab3:
             )
             st.dataframe(df_display, use_container_width=True, hide_index=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 # ===========================================================================
@@ -1248,7 +1325,7 @@ with tab3:
 # ===========================================================================
 
 with tab4:
-    st.markdown('<div class="finsight-content">', unsafe_allow_html=True)
+    st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
     st.markdown('<div class="finsight-section-title">Data Quality Assurance Report</div>', unsafe_allow_html=True)
 
     # --- Status summary from DB ---
@@ -1401,7 +1478,7 @@ with tab4:
             unsafe_allow_html=True,
         )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 # ===========================================================================
@@ -1409,7 +1486,7 @@ with tab4:
 # ===========================================================================
 
 with tab5:
-    st.markdown('<div class="finsight-content">', unsafe_allow_html=True)
+    st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
     st.markdown('<div class="finsight-section-title">Update Log</div>', unsafe_allow_html=True)
 
     if not DB_PATH.exists():
@@ -1570,4 +1647,4 @@ with tab5:
                     unsafe_allow_html=True,
                 )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
