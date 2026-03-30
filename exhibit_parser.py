@@ -297,6 +297,70 @@ def fetch_exhibit(url: str) -> str:
         return raw_bytes.decode("latin-1")
 
 
+def _is_exception_table(headers: list[str]) -> bool:
+    """Return True if this table looks like the exception description/findings table."""
+    joined = " ".join(headers).lower()
+    return (
+        "exception" in joined
+        and ("description" in joined or "number" in joined or "finding" in joined)
+    )
+
+
+def _parse_html_tables(soup) -> dict:
+    """
+    Extract exception count, sample size, and findings from HTML tables.
+    Returns dict with keys: exception_count, sample_size, findings.
+    """
+    exception_count = None
+    findings = []
+
+    for table in soup.find_all("table"):
+        rows = table.find_all("tr")
+        if not rows:
+            continue
+
+        # Find the header row — scan all rows since blank spacers may come first
+        header_idx = None
+        for idx, row in enumerate(rows):
+            header_cells = [td.get_text(strip=True) for td in row.find_all(["th", "td"])]
+            if _is_exception_table(header_cells):
+                header_idx = idx
+                break
+        if header_idx is None:
+            continue
+
+        # Data rows (everything after the header, skip blanks)
+        data_rows = []
+        for row in rows[header_idx + 1:]:
+            cells = [td.get_text(strip=True) for td in row.find_all(["th", "td"])]
+            cells = [c for c in cells if c]
+            if cells:
+                data_rows.append(cells)
+
+        if not data_rows:
+            continue
+
+        # Count unique exception numbers (first non-empty cell per row)
+        exc_numbers = set()
+        for cells in data_rows:
+            first = cells[0].strip()
+            if first.isdigit():
+                exc_numbers.add(int(first))
+            # Pull description text (second meaningful cell)
+            for cell in cells[1:]:
+                if len(cell) > 10 and cell not in findings:
+                    findings.append(cell)
+                    break
+
+        if exc_numbers:
+            exception_count = max(exc_numbers)
+
+    return {
+        "exception_count": exception_count,
+        "findings": findings,
+    }
+
+
 def parse_aup_html(html_content: str) -> list[dict]:
     """
     Parse an HTML AUP exhibit and return a list of procedure result dicts.
@@ -321,6 +385,9 @@ def parse_aup_html(html_content: str) -> list[dict]:
         BeautifulSoup = _import_bs4()
         soup = BeautifulSoup(html_content, "html.parser")
 
+        # Extract structured data from tables before stripping HTML
+        table_data = _parse_html_tables(soup)
+
         # Remove boilerplate tags
         for tag in soup(["script", "style", "meta", "head", "nav", "footer"]):
             tag.decompose()
@@ -329,8 +396,31 @@ def parse_aup_html(html_content: str) -> list[dict]:
     except Exception as exc:
         logger.warning("HTML parsing failed, falling back to raw text: %s", exc)
         text = _clean_text(html_content)
+        table_data = {"exception_count": None, "findings": []}
 
-    return _parse_text_to_procedures(text)
+    procedures = _parse_text_to_procedures(text)
+
+    # Overlay table-extracted data onto the first procedure (or only procedure)
+    if procedures:
+        p = procedures[0]
+        # Only override if table parsing found something better
+        if table_data["exception_count"] is not None:
+            p["exception_count"] = table_data["exception_count"]
+        if table_data["findings"]:
+            p["findings"] = table_data["findings"]
+        # If no exceptions found via table but "no exceptions" phrase in text, set 0
+        if p["exception_count"] is None and _RE_NO_EXCEPTIONS.search(text):
+            p["exception_count"] = 0
+            if not p["findings"]:
+                p["findings"] = ["No exceptions noted"]
+        # Compute exception rate from count / sample_size
+        if p["exception_count"] is not None and p.get("sample_size"):
+            try:
+                p["exception_rate"] = p["exception_count"] / int(p["sample_size"])
+            except (ValueError, ZeroDivisionError):
+                pass
+
+    return procedures
 
 
 def parse_aup_pdf(pdf_bytes: bytes) -> list[dict]:

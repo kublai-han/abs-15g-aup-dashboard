@@ -463,20 +463,23 @@ def check_for_new_filings() -> dict:
 
     try:
         for issuer_key, issuer_info in ISSUERS.items():
-            cik: str = str(issuer_info.get("cik", "")).strip()
-            if not cik:
+            cik_list: list[str] = [
+                str(c).strip() for c in issuer_info.get("ciks", [issuer_info.get("cik", "")])
+                if str(c).strip()
+            ]
+            if not cik_list:
                 logger.warning("Issuer %s has no CIK – skipping.", issuer_key)
                 continue
 
             summary["checked_issuers"] += 1
-            logger.info("Checking issuer: %s (CIK %s)", issuer_key, cik)
-
-            try:
-                filings = fetch_filings_for_issuer(cik, issuer_key)
-            except Exception as exc:
-                logger.error("Failed to fetch filings for %s: %s", issuer_key, exc)
-                summary["errors"] += 1
-                continue
+            filings: list[dict] = []
+            for cik in cik_list:
+                logger.info("Checking issuer: %s (CIK %s)", issuer_key, cik)
+                try:
+                    filings += fetch_filings_for_issuer(cik, issuer_key)
+                except Exception as exc:
+                    logger.error("Failed to fetch filings for %s CIK %s: %s", issuer_key, cik, exc)
+                    summary["errors"] += 1
 
             for filing in filings:
                 accession_no = filing["accession_no"]

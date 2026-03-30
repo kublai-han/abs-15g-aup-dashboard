@@ -21,8 +21,9 @@ ISSUERS = {
         "active": True,
     },
     "oportun": {
-        "name": "Oportun, Inc.",
-        "cik": "0001478295",  # Oportun, Inc. (depositor entity, 25 ABS-15G filings); parent Oportun Financial Corp = 0001538716
+        "name": "Oportun",
+        "cik": "0001478295",   # Oportun, Inc. (annual depositor entity)
+        "ciks": ["0001478295", "0001857141"],  # also Oportun Funding XVI LLC (quarterly trust)
         "type": "consumer_loan",
         "active": True,
     },

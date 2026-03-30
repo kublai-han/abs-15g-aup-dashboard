@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS filings (
     issuer_name      TEXT    NOT NULL,
     cik              TEXT    NOT NULL,
     accession_number TEXT    NOT NULL UNIQUE,
-    filing_date      TEXT,           -- ISO-8601 date string  (YYYY-MM-DD)
+    filed_date      TEXT,           -- ISO-8601 date string  (YYYY-MM-DD)
     period_of_report TEXT,           -- ISO-8601 date string
     form_type        TEXT    DEFAULT 'ABS-15G',
     primary_doc_url  TEXT,
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS aup_results (
     id                   INTEGER PRIMARY KEY AUTOINCREMENT,
     exhibit_id           INTEGER NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
     issuer_key           TEXT    NOT NULL,
-    filing_date          TEXT,
+    filed_date          TEXT,
     procedure_number     TEXT,
     procedure_description TEXT,
     finding              TEXT,
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS data_quality_log (
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_filings_issuer_key  ON filings(issuer_key);",
     "CREATE INDEX IF NOT EXISTS idx_filings_cik          ON filings(cik);",
-    "CREATE INDEX IF NOT EXISTS idx_filings_filing_date  ON filings(filing_date);",
+    "CREATE INDEX IF NOT EXISTS idx_filings_filed_date  ON filings(filed_date);",
     "CREATE INDEX IF NOT EXISTS idx_exhibits_filing_id   ON exhibits(filing_id);",
     "CREATE INDEX IF NOT EXISTS idx_aup_results_exhibit  ON aup_results(exhibit_id);",
     "CREATE INDEX IF NOT EXISTS idx_aup_results_issuer   ON aup_results(issuer_key);",
@@ -188,7 +188,7 @@ def insert_filing(filing_dict: dict, db_path: Path = DB_PATH) -> int:
     ----------
     filing_dict : dict
         Must contain at minimum: ``issuer_key``, ``issuer_name``, ``cik``,
-        ``accession_number``.  Optional keys: ``filing_date``,
+        ``accession_number``.  Optional keys: ``filed_date``,
         ``period_of_report``, ``form_type``, ``primary_doc_url``.
 
     Returns
@@ -204,15 +204,15 @@ def insert_filing(filing_dict: dict, db_path: Path = DB_PATH) -> int:
     sql = """
         INSERT INTO filings
             (issuer_key, issuer_name, cik, accession_number,
-             filing_date, period_of_report, form_type, primary_doc_url, created_at)
+             filed_date, period_of_report, form_type, primary_doc_url, created_at)
         VALUES
             (:issuer_key, :issuer_name, :cik, :accession_number,
-             :filing_date, :period_of_report, :form_type, :primary_doc_url, :created_at)
+             :filed_date, :period_of_report, :form_type, :primary_doc_url, :created_at)
         ON CONFLICT(accession_number) DO UPDATE SET
             issuer_key       = excluded.issuer_key,
             issuer_name      = excluded.issuer_name,
             cik              = excluded.cik,
-            filing_date      = excluded.filing_date,
+            filed_date      = excluded.filed_date,
             period_of_report = excluded.period_of_report,
             form_type        = excluded.form_type,
             primary_doc_url  = excluded.primary_doc_url
@@ -222,7 +222,7 @@ def insert_filing(filing_dict: dict, db_path: Path = DB_PATH) -> int:
         "issuer_name": filing_dict["issuer_name"],
         "cik": filing_dict["cik"],
         "accession_number": filing_dict["accession_number"],
-        "filing_date": filing_dict.get("filing_date"),
+        "filed_date": filing_dict.get("filed_date"),
         "period_of_report": filing_dict.get("period_of_report"),
         "form_type": filing_dict.get("form_type", "ABS-15G"),
         "primary_doc_url": filing_dict.get("primary_doc_url"),
@@ -259,7 +259,7 @@ def get_filings(
     Returns
     -------
     list[dict]
-        List of filing records as plain dicts, ordered by filing_date DESC.
+        List of filing records as plain dicts, ordered by filed_date DESC.
     """
     if limit < 1:
         raise ValueError("limit must be a positive integer")
@@ -267,11 +267,11 @@ def get_filings(
     if issuer_key:
         sql = (
             "SELECT * FROM filings WHERE issuer_key = ? "
-            "ORDER BY filing_date DESC LIMIT ?"
+            "ORDER BY filed_date DESC LIMIT ?"
         )
         args: tuple = (issuer_key, limit)
     else:
-        sql = "SELECT * FROM filings ORDER BY filing_date DESC LIMIT ?"
+        sql = "SELECT * FROM filings ORDER BY filed_date DESC LIMIT ?"
         args = (limit,)
 
     with _get_connection(db_path) as conn:
@@ -279,11 +279,11 @@ def get_filings(
     return [dict(row) for row in rows]
 
 
-def get_latest_filing_date(
+def get_latest_filed_date(
     issuer_key: str, db_path: Path = DB_PATH
 ) -> Optional[str]:
     """
-    Return the most recent ``filing_date`` stored for *issuer_key*.
+    Return the most recent ``filed_date`` stored for *issuer_key*.
 
     Useful for incremental EDGAR polling: only fetch filings newer than the
     date returned here.
@@ -299,7 +299,7 @@ def get_latest_filing_date(
         ISO-8601 date string (``YYYY-MM-DD``) or ``None`` if no filings exist.
     """
     sql = (
-        "SELECT MAX(filing_date) AS latest FROM filings WHERE issuer_key = ?"
+        "SELECT MAX(filed_date) AS latest FROM filings WHERE issuer_key = ?"
     )
     with _get_connection(db_path) as conn:
         row = conn.execute(sql, (issuer_key,)).fetchone()
@@ -370,7 +370,7 @@ def insert_aup_result(result_dict: dict, db_path: Path = DB_PATH) -> int:
     ----------
     result_dict : dict
         Must contain ``exhibit_id`` and ``issuer_key``.  Optional keys:
-        ``filing_date``, ``procedure_number``, ``procedure_description``,
+        ``filed_date``, ``procedure_number``, ``procedure_description``,
         ``finding``, ``exception_count``, ``pool_size``, ``exception_rate``.
 
     Returns
@@ -396,18 +396,18 @@ def insert_aup_result(result_dict: dict, db_path: Path = DB_PATH) -> int:
 
     sql = """
         INSERT INTO aup_results
-            (exhibit_id, issuer_key, filing_date, procedure_number,
+            (exhibit_id, issuer_key, filed_date, procedure_number,
              procedure_description, finding, exception_count, pool_size,
              exception_rate, created_at)
         VALUES
-            (:exhibit_id, :issuer_key, :filing_date, :procedure_number,
+            (:exhibit_id, :issuer_key, :filed_date, :procedure_number,
              :procedure_description, :finding, :exception_count, :pool_size,
              :exception_rate, :created_at)
     """
     params = {
         "exhibit_id": result_dict["exhibit_id"],
         "issuer_key": result_dict["issuer_key"],
-        "filing_date": result_dict.get("filing_date"),
+        "filed_date": result_dict.get("filed_date"),
         "procedure_number": result_dict.get("procedure_number"),
         "procedure_description": result_dict.get("procedure_description"),
         "finding": result_dict.get("finding"),
@@ -483,7 +483,7 @@ def log_dqa_check(check_dict: dict, db_path: Path = DB_PATH) -> int:
 
 def get_aup_results(
     issuer_key: Optional[str] = None,
-    filing_date_from: Optional[str] = None,
+    filed_date_from: Optional[str] = None,
     limit: int = 500,
     db_path: Path = DB_PATH,
 ) -> list[dict]:
@@ -494,7 +494,7 @@ def get_aup_results(
     ----------
     issuer_key : str, optional
         Restrict to one issuer.
-    filing_date_from : str, optional
+    filed_date_from : str, optional
         ISO-8601 date; only return results on or after this date.
     limit : int
         Row cap (default 500).
@@ -503,14 +503,27 @@ def get_aup_results(
     args: list[Any] = []
 
     if issuer_key:
-        conditions.append("issuer_key = ?")
+        conditions.append("f.issuer_key = ?")
         args.append(issuer_key)
-    if filing_date_from:
-        conditions.append("filing_date >= ?")
-        args.append(filing_date_from)
+    if filed_date_from:
+        conditions.append("f.filed_date >= ?")
+        args.append(filed_date_from)
 
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-    sql = f"SELECT * FROM aup_results {where_clause} ORDER BY filing_date DESC LIMIT ?"
+    sql = f"""
+        SELECT
+            p.id, f.issuer_key, f.filed_date, f.accession_no,
+            f.deal_name, f.aup_provider,
+            p.procedure_number,
+            p.description   AS procedure_description,
+            p.findings_json AS finding,
+            p.exception_count, p.pool_size, p.sample_size, p.exception_rate
+        FROM procedures p
+        JOIN filings f ON f.id = p.filing_id
+        {where_clause}
+        ORDER BY f.filed_date DESC
+        LIMIT ?
+    """
     args.append(limit)
 
     with _get_connection(db_path) as conn:
@@ -542,6 +555,11 @@ def get_dqa_log(
     args.append(limit)
 
     with _get_connection(db_path) as conn:
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='data_quality_log'"
+        ).fetchone()
+        if not exists:
+            return []
         rows = conn.execute(sql, args).fetchall()
     return [dict(row) for row in rows]
 
@@ -566,7 +584,7 @@ if __name__ == "__main__":
             "issuer_name": "Pagaya Technologies",
             "cik": "0001883944",
             "accession_number": "0001883944-24-000001",
-            "filing_date": "2024-02-15",
+            "filed_date": "2024-02-15",
             "period_of_report": "2023-12-31",
             "form_type": "ABS-15G",
             "primary_doc_url": "https://www.sec.gov/Archives/edgar/data/1883944/000188394424000001/0001883944-24-000001-index.htm",
@@ -591,7 +609,7 @@ if __name__ == "__main__":
         {
             "exhibit_id": exhibit_id,
             "issuer_key": "pagaya",
-            "filing_date": "2024-02-15",
+            "filed_date": "2024-02-15",
             "procedure_number": "1",
             "procedure_description": "Verify borrower identity fields are present",
             "finding": "No exceptions noted.",
@@ -617,7 +635,7 @@ if __name__ == "__main__":
     filings = get_filings(issuer_key="pagaya", db_path=_TEST_DB)
     logger.info("get_filings result: %s", filings)
 
-    latest = get_latest_filing_date("pagaya", db_path=_TEST_DB)
+    latest = get_latest_filed_date("pagaya", db_path=_TEST_DB)
     logger.info("Latest filing date for pagaya: %s", latest)
 
     _TEST_DB.unlink()

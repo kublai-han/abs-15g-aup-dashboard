@@ -42,7 +42,7 @@ from issuers import ISSUERS
 # Constants
 # ---------------------------------------------------------------------------
 
-DB_PATH = _DIR / "aup_data.db"
+DB_PATH = _DIR / "aup_dashboard.db"
 DQA_REPORT_PATH = _DIR / "dqa_report.md"
 
 EDGAR_FILING_BASE = (
@@ -557,6 +557,42 @@ def _no_data_banner() -> None:
     )
 
 
+_FINDING_NOISE = {"findings", "exception", "exception description", "finding",
+                  "findings set forth on appendix a", "findings set forth on appendix",
+                  "findings set forth on appendix b", "findings based on the procedures performed",
+                  "exception description number"}
+
+def _fmt_finding(raw) -> str:
+    """Return a clean one-line finding summary from a raw findings_json value."""
+    import json, re as _re
+    if not raw:
+        return "—"
+    if isinstance(raw, str):
+        try:
+            items = json.loads(raw)
+        except Exception:
+            items = [raw]
+    else:
+        items = raw if isinstance(raw, list) else [str(raw)]
+    seen: set = set()
+    clean = []
+    for item in items:
+        s = str(item).strip()
+        low = s.lower()
+        if low in _FINDING_NOISE:
+            continue
+        if len(s) < 15:
+            continue
+        if _re.match(r'^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$', s):
+            continue
+        if s not in seen:
+            seen.add(s)
+            clean.append(s)
+    if not clean:
+        return "No exceptions noted"
+    return "; ".join(clean[:2])
+
+
 def _fmt_date(date_str: Optional[str]) -> str:
     if not date_str:
         return "—"
@@ -603,7 +639,7 @@ def _filing_count_per_issuer() -> dict[str, int]:
 
 
 def _latest_date_per_issuer() -> dict[str, Optional[str]]:
-    return {key: db.get_latest_filing_date(key, db_path=DB_PATH) for key in ISSUERS}
+    return {key: db.get_latest_filed_date(key, db_path=DB_PATH) for key in ISSUERS}
 
 
 def _dark_plotly_layout() -> dict:
@@ -631,14 +667,28 @@ def _dark_plotly_layout() -> dict:
     )
 
 
+_TABLE_CSS = """<style>
+.styled-table{width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.5rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+.styled-table thead th{background:#141428!important;color:#64748b!important;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.55rem 0.85rem;text-align:left!important;}
+.styled-table tbody tr{border-bottom:1px solid #1e1e3f;}
+.styled-table tbody tr:hover{background:#1e1e3f;}
+.styled-table tbody td{padding:0.55rem 0.85rem;color:#cbd5e1;vertical-align:middle;}
+.styled-table a{color:#a78bfa;text-decoration:none;}
+.styled-table a:hover{text-decoration:underline;}
+.sector-badge{display:inline-block;font-size:0.66rem;font-weight:700;letter-spacing:0.06em;padding:2px 7px;border-radius:3px;}
+.cik-badge{font-family:monospace;font-size:0.78rem;color:#7b5ea7;}
+</style>"""
+
+
 def _table_html(df: pd.DataFrame) -> str:
-    """Render a DataFrame as a dark-styled HTML table."""
+    """Render a DataFrame as a dark-styled HTML table (self-contained for st.html)."""
     rows_html = ""
     for _, row in df.iterrows():
         cells = "".join(f"<td>{v}</td>" for v in row)
         rows_html += f"<tr>{cells}</tr>"
     headers = "".join(f"<th>{c}</th>" for c in df.columns)
     return (
+        f"{_TABLE_CSS}"
         f'<div style="overflow-x:auto;">'
         f'<table class="styled-table"><thead><tr>{headers}</tr></thead>'
         f"<tbody>{rows_html}</tbody></table></div>"
@@ -691,7 +741,7 @@ with tab1:
     total_filings = len(all_filings)
 
     if all_filings:
-        dates = [f["filing_date"] for f in all_filings if f.get("filing_date")]
+        dates = [f["filed_date"] for f in all_filings if f.get("filed_date")]
         last_filing_date = max(dates) if dates else None
     else:
         last_filing_date = None
@@ -751,7 +801,19 @@ with tab1:
         latest_dates = _latest_date_per_issuer()
 
         # Build card HTML for each issuer
-        cards_html = '<div class="issuer-grid">'
+        _CARD_CSS = """
+        <style>
+        .issuer-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.9rem;margin-bottom:2rem;}
+        @media(max-width:1100px){.issuer-grid{grid-template-columns:repeat(2,1fr);}}
+        .issuer-card{background:#1e1e3f;border:1px solid #2d2d5e;border-radius:8px;padding:1rem 1.1rem 0.9rem;transition:border-color 0.15s,transform 0.12s;cursor:default;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+        .issuer-card:hover{border-color:#7b5ea7;transform:translateY(-1px);}
+        .sector-badge{display:inline-block;font-size:0.66rem;font-weight:700;letter-spacing:0.06em;padding:2px 7px;border-radius:3px;margin-bottom:0.5rem;}
+        .issuer-name{font-size:0.9rem;font-weight:700;color:#f1f5f9;margin-bottom:0.35rem;line-height:1.25;}
+        .issuer-meta{font-size:0.73rem;color:#94a3b8;line-height:1.6;}
+        .hi{color:#a78bfa;}
+        </style>
+        """
+        cards_html = _CARD_CSS + '<div class="issuer-grid">'
         for key, issuer in ISSUERS.items():
             badge_html = _sector_badge_html(issuer.get("type", ""))
             count = filing_counts.get(key, 0)
@@ -777,7 +839,7 @@ with tab1:
             </div>
             """
         cards_html += "</div>"
-        st.markdown(cards_html, unsafe_allow_html=True)
+        st.html(cards_html)
 
         if total_filings == 0:
             _no_data_banner()
@@ -811,7 +873,7 @@ with tab1:
             })
 
         df_issuers = pd.DataFrame(rows)
-        st.markdown(_table_html(df_issuers), unsafe_allow_html=True)
+        st.html(_table_html(df_issuers))
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -879,7 +941,7 @@ with tab2:
             cik = f.get("cik", issuer_info["cik"])
             filing_url = _accession_url(cik, acc) if acc else ""
             filing_rows.append({
-                "Filing Date": _fmt_date(f.get("filing_date")),
+                "Filing Date": _fmt_date(f.get("filed_date")),
                 "Period of Report": _fmt_date(f.get("period_of_report")),
                 "Form Type": f.get("form_type", "ABS-15G"),
                 "Accession Number": f'<span class="cik-badge">{acc}</span>' if acc else "—",
@@ -888,7 +950,7 @@ with tab2:
                     if filing_url else "—"
                 ),
             })
-        st.markdown(_table_html(pd.DataFrame(filing_rows)), unsafe_allow_html=True)
+        st.html(_table_html(pd.DataFrame(filing_rows)))
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -909,15 +971,16 @@ with tab2:
         result_rows = []
         for r in aup_results:
             exc_rate = r.get("exception_rate")
-            exc_rate_str = f"{exc_rate:.4%}" if exc_rate is not None else "—"
+            exc_rate_str = f"{exc_rate * 100:.2f}%" if exc_rate is not None else "—"
             result_rows.append({
-                "Filing Date": _fmt_date(r.get("filing_date")),
-                "Proc #": r.get("procedure_number", "—"),
-                "Description": r.get("procedure_description", "—"),
-                "Finding": r.get("finding", "—"),
-                "Exceptions": r.get("exception_count", "—"),
-                "Pool Size": r.get("pool_size", "—"),
-                "Exception Rate": exc_rate_str,
+                "Trust Series": r.get("deal_name") or "—",
+                "Filing Date": _fmt_date(r.get("filed_date")),
+                "Auditor": r.get("aup_provider") or "—",
+                "Pool Size": r.get("pool_size") or "—",
+                "Sample": r.get("sample_size") or "—",
+                "Findings": r.get("exception_count") if r.get("exception_count") is not None else "—",
+                "Finding %": exc_rate_str,
+                "Finding Details": _fmt_finding(r.get("finding")),
             })
         df_res = pd.DataFrame(result_rows)
         st.dataframe(df_res, use_container_width=True, hide_index=True)
@@ -942,9 +1005,12 @@ with tab3:
             _no_data_banner()
         else:
             df = pd.DataFrame(all_results)
-            df["filing_date"] = pd.to_datetime(df["filing_date"], errors="coerce")
+            df["filed_date"] = pd.to_datetime(df["filed_date"], errors="coerce")
             df["exception_rate_pct"] = df["exception_rate"].apply(
-                lambda x: round(x * 100, 4) if pd.notna(x) else None
+                lambda x: round(x * 100, 4) if pd.notna(x) else 0.0
+            )
+            df["procedure_number"] = df["procedure_number"].apply(
+                lambda x: "N/A" if x is None or (isinstance(x, float) and pd.isna(x)) else str(x)
             )
             name_map = {k: v["name"] for k, v in ISSUERS.items()}
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
@@ -993,7 +1059,7 @@ with tab3:
             )
 
             df_bar = (
-                df_filtered.dropna(subset=["exception_rate_pct", "procedure_number"])
+                df_filtered.dropna(subset=["filed_date"])
                 .groupby(["Issuer", "procedure_number"], as_index=False)["exception_rate_pct"]
                 .mean()
             )
@@ -1058,10 +1124,10 @@ with tab3:
 
             df_trend = (
                 df_filtered[df_filtered["Issuer"].isin(selected_trend_issuers)]
-                .dropna(subset=["filing_date", "exception_rate_pct"])
-                .groupby(["Issuer", "filing_date"], as_index=False)["exception_rate_pct"]
+                .dropna(subset=["filed_date"])
+                .groupby(["Issuer", "filed_date"], as_index=False)["exception_rate_pct"]
                 .mean()
-                .sort_values("filing_date")
+                .sort_values("filed_date")
             )
 
             if df_trend.empty:
@@ -1072,12 +1138,12 @@ with tab3:
             else:
                 fig_trend = px.line(
                     df_trend,
-                    x="filing_date",
+                    x="filed_date",
                     y="exception_rate_pct",
                     color="Issuer",
                     markers=True,
                     labels={
-                        "filing_date": "Filing Date",
+                        "filed_date": "Filing Date",
                         "exception_rate_pct": "Avg Exception Rate (%)",
                     },
                     color_discrete_sequence=ISSUER_PALETTE,
@@ -1118,7 +1184,7 @@ with tab3:
             for col in ["Avg Exception Rate (%)", "Min (%)", "Max (%)"]:
                 df_summary[col] = df_summary[col].map(lambda x: f"{x:.4f}")
 
-            st.markdown(_table_html(df_summary), unsafe_allow_html=True)
+            st.html(_table_html(df_summary))
 
             st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1128,19 +1194,23 @@ with tab3:
                 unsafe_allow_html=True,
             )
 
-            display_cols = ["Issuer", "filing_date", "procedure_number",
-                            "procedure_description", "finding",
-                            "exception_count", "pool_size", "exception_rate_pct"]
+            df_filtered["deal_name"] = df_filtered["deal_name"].fillna("—")
+            df_filtered["aup_provider"] = df_filtered["aup_provider"].fillna("—")
+            display_cols = ["Issuer", "deal_name", "filed_date", "aup_provider",
+                            "pool_size", "sample_size",
+                            "exception_count", "exception_rate_pct", "finding"]
             df_display = df_filtered[display_cols].copy()
             df_display.columns = [
-                "Issuer", "Filing Date", "Proc #", "Description",
-                "Finding", "Exceptions", "Pool Size", "Exception Rate (%)",
+                "Company", "Trust Series", "Filing Date", "Auditor",
+                "Pool Size", "Sample",
+                "Findings", "Finding %", "Finding Details",
             ]
+            df_display["Finding Details"] = df_display["Finding Details"].apply(_fmt_finding)
             df_display["Filing Date"] = df_display["Filing Date"].apply(
                 lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "—"
             )
-            df_display["Exception Rate (%)"] = df_display["Exception Rate (%)"].apply(
-                lambda x: f"{x:.4f}" if pd.notna(x) else "—"
+            df_display["Finding %"] = df_display["Finding %"].apply(
+                lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0.0 else ("0.00%" if x == 0.0 else "—")
             )
             st.dataframe(df_display, use_container_width=True, hide_index=True)
 
@@ -1270,7 +1340,7 @@ with tab4:
                     "Filing ID": r.get("filing_id", "—"),
                     "Notes": r.get("notes", "—"),
                 })
-            st.markdown(_table_html(pd.DataFrame(display_rows)), unsafe_allow_html=True)
+            st.html(_table_html(pd.DataFrame(display_rows)))
         else:
             st.markdown(
                 '<div class="info-box">No records match the selected filters.</div>',
@@ -1399,7 +1469,7 @@ with tab5:
                                 <span style="color:#a78bfa;">{f.get("form_type","ABS-15G")}</span>
                                 for period {_fmt_date(f.get("period_of_report"))}{link}
                             </div>
-                            <div class="activity-time">Ingested: {f.get("created_at","—")} &bull; Filing date: {_fmt_date(f.get("filing_date"))}</div>
+                            <div class="activity-time">Ingested: {f.get("created_at","—")} &bull; Filing date: {_fmt_date(f.get("filed_date"))}</div>
                         </div>
                     </div>
                     """
@@ -1434,7 +1504,7 @@ with tab5:
                         "Notes": r.get("notes", "—"),
                         "Logged At": r.get("created_at", "—"),
                     })
-                st.markdown(_table_html(pd.DataFrame(err_rows)), unsafe_allow_html=True)
+                st.html(_table_html(pd.DataFrame(err_rows)))
 
             st.markdown("<br>", unsafe_allow_html=True)
 
