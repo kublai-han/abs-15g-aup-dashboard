@@ -100,19 +100,17 @@ st.markdown(
         [data-testid="stSidebar"] { display: none !important; }
         .block-container {
             padding-top: 0 !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-            max-width: 100% !important;
-        }
-
-        /* ── Page-wide content constraint (side margins like creditflowresearch.com) ── */
-        .page-wrapper {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 0 3rem;
+            padding-left: 5rem !important;
+            padding-right: 5rem !important;
+            max-width: 1380px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
         }
         @media (max-width: 900px) {
-            .page-wrapper { padding: 0 1.25rem; }
+            .block-container {
+                padding-left: 1.25rem !important;
+                padding-right: 1.25rem !important;
+            }
         }
 
         /* ── Top header bar ── */
@@ -1058,41 +1056,6 @@ with tab3:
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 
             # --- Search bar with magnifying glass icon ---
-            st.markdown(
-                """
-                <style>
-                div[data-testid="stTextInput"] input {
-                    padding-left: 2.2rem !important;
-                    background: #141428 !important;
-                    border: 1px solid #2d2d5e !important;
-                    border-radius: 6px !important;
-                    color: #e2e8f0 !important;
-                }
-                div[data-testid="stTextInput"] input:focus {
-                    border-color: #7b5ea7 !important;
-                    box-shadow: none !important;
-                }
-                div[data-testid="stTextInput"] {
-                    position: relative;
-                }
-                div[data-testid="stTextInput"]::before {
-                    content: "";
-                    position: absolute;
-                    left: 0.72rem;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    width: 15px;
-                    height: 15px;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E");
-                    background-repeat: no-repeat;
-                    background-size: contain;
-                    pointer-events: none;
-                    z-index: 10;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True,
-            )
             search_query = st.text_input(
                 "Search",
                 placeholder="🔍  Search by issuer, deal name, auditor, finding details…",
@@ -1309,13 +1272,18 @@ with tab3:
                 "Findings", "Finding %", "Finding Details",
             ]
             df_display["Finding Details"] = df_display["Finding Details"].apply(_fmt_finding)
-            df_display["Filing Date"] = df_display["Filing Date"].apply(
-                lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "—"
-            )
+            df_display["Filing Date"] = pd.to_datetime(df_display["Filing Date"], errors="coerce")
             df_display["Finding %"] = df_display["Finding %"].apply(
                 lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0.0 else ("0.00%" if x == 0.0 else "—")
             )
-            st.dataframe(df_display, use_container_width=True, hide_index=True)
+            st.dataframe(
+                df_display,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Filing Date": st.column_config.DateColumn("Filing Date", format="DD MMM YYYY"),
+                },
+            )
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
