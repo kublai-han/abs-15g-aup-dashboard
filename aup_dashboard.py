@@ -1058,9 +1058,15 @@ with tab3:
                 unsafe_allow_html=True,
             )
 
+            df_bar_src = (
+                df_filtered
+                .dropna(subset=["filed_date", "Issuer"])
+                .copy()
+            )
+            df_bar_src["label"] = df_bar_src["deal_name"].fillna(df_bar_src["Issuer"])
             df_bar = (
-                df_filtered.dropna(subset=["filed_date"])
-                .groupby(["Issuer", "procedure_number"], as_index=False)["exception_rate_pct"]
+                df_bar_src
+                .groupby(["Issuer", "label"], as_index=False)["exception_rate_pct"]
                 .mean()
             )
 
@@ -1070,22 +1076,13 @@ with tab3:
                     unsafe_allow_html=True,
                 )
             else:
-                top_procs = (
-                    df_bar.groupby("procedure_number")["exception_rate_pct"]
-                    .mean()
-                    .nlargest(15)
-                    .index
-                )
-                df_bar_top = df_bar[df_bar["procedure_number"].isin(top_procs)]
-
                 fig_bar = px.bar(
-                    df_bar_top,
-                    x="procedure_number",
+                    df_bar.sort_values("exception_rate_pct", ascending=False).head(20),
+                    x="label",
                     y="exception_rate_pct",
                     color="Issuer",
-                    barmode="group",
                     labels={
-                        "procedure_number": "Procedure",
+                        "label": "Deal / Issuer",
                         "exception_rate_pct": "Avg Exception Rate (%)",
                     },
                     color_discrete_sequence=ISSUER_PALETTE,
@@ -1097,9 +1094,10 @@ with tab3:
                         bgcolor="#1e1e3f", bordercolor="#2d2d5e", borderwidth=1,
                         font=dict(color="#94a3b8", size=10),
                     ),
-                    xaxis_title="Procedure Number",
+                    xaxis_title="Deal / Issuer",
                     yaxis_title="Avg Exception Rate (%)",
-                    height=400,
+                    xaxis_tickangle=-35,
+                    height=450,
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -1124,7 +1122,7 @@ with tab3:
 
             df_trend = (
                 df_filtered[df_filtered["Issuer"].isin(selected_trend_issuers)]
-                .dropna(subset=["filed_date"])
+                .dropna(subset=["filed_date", "Issuer"])
                 .groupby(["Issuer", "filed_date"], as_index=False)["exception_rate_pct"]
                 .mean()
                 .sort_values("filed_date")
