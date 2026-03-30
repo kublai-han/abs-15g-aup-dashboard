@@ -1015,6 +1015,23 @@ with tab3:
             name_map = {k: v["name"] for k, v in ISSUERS.items()}
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 
+            # --- Search bar ---
+            search_query = st.text_input(
+                "Search",
+                placeholder="Search by issuer, deal name, auditor, finding details…",
+                label_visibility="collapsed",
+            )
+            if search_query:
+                q = search_query.lower()
+                mask = (
+                    df["Issuer"].str.lower().str.contains(q, na=False)
+                    | df["deal_name"].fillna("").str.lower().str.contains(q, na=False)
+                    | df["aup_provider"].fillna("").str.lower().str.contains(q, na=False)
+                    | df["finding"].fillna("").str.lower().str.contains(q, na=False)
+                    | df["issuer_key"].str.lower().str.contains(q, na=False)
+                )
+                df = df[mask]
+
             # --- Filter bar ---
             st.markdown('<div class="filter-bar">', unsafe_allow_html=True)
             fcol1, fcol2, fcol3 = st.columns(3)
