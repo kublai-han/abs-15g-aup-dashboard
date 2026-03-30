@@ -1153,17 +1153,18 @@ with tab3:
                 fig_bar.update_layout(
                     legend=dict(
                         orientation="h",
-                        y=-0.45,
+                        y=-0.65,
                         x=0.5,
                         xanchor="center",
+                        yanchor="top",
                         bgcolor="#1e1e3f", bordercolor="#2d2d5e", borderwidth=1,
                         font=dict(color="#94a3b8", size=10),
                     ),
                     xaxis_title="Deal / Issuer",
                     yaxis_title="Avg Exception Rate (%)",
-                    xaxis_tickangle=-35,
-                    margin=dict(b=180),
-                    height=500,
+                    xaxis_tickangle=-40,
+                    margin=dict(b=240),
+                    height=560,
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -1280,6 +1281,10 @@ with tab3:
             df_display["Finding %"] = df_display["Finding %"].apply(
                 lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0.0 else ("0.00%" if x == 0.0 else "—")
             )
+            st.markdown(
+                '<div style="background:#0f1f17;border:1px solid #1e3a2a;border-radius:8px;padding:1.25rem 1.25rem 0.5rem;">',
+                unsafe_allow_html=True,
+            )
             st.dataframe(
                 df_display,
                 use_container_width=True,
@@ -1288,6 +1293,7 @@ with tab3:
                     "Filing Date": st.column_config.DateColumn("Filing Date", format="DD MMM YYYY"),
                 },
             )
+            st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
