@@ -1152,14 +1152,18 @@ with tab3:
                 fig_bar.update_layout(**_dark_plotly_layout())
                 fig_bar.update_layout(
                     legend=dict(
-                        orientation="h", y=-0.18,
+                        orientation="h",
+                        y=-0.45,
+                        x=0.5,
+                        xanchor="center",
                         bgcolor="#1e1e3f", bordercolor="#2d2d5e", borderwidth=1,
                         font=dict(color="#94a3b8", size=10),
                     ),
                     xaxis_title="Deal / Issuer",
                     yaxis_title="Avg Exception Rate (%)",
                     xaxis_tickangle=-35,
-                    height=450,
+                    margin=dict(b=180),
+                    height=500,
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
 
