@@ -1093,11 +1093,16 @@ with tab3:
                     unsafe_allow_html=True,
                 )
             else:
+                df_bar_plot = df_bar.sort_values("exception_rate_pct", ascending=False).head(20).copy()
+                df_bar_plot["Issuer"] = df_bar_plot["Issuer"].astype(str)
+                df_bar_plot["label"] = df_bar_plot["label"].astype(str)
+                df_bar_plot["exception_rate_pct"] = pd.to_numeric(df_bar_plot["exception_rate_pct"], errors="coerce").fillna(0.0)
                 fig_bar = px.bar(
-                    df_bar.sort_values("exception_rate_pct", ascending=False).head(20),
+                    df_bar_plot,
                     x="label",
                     y="exception_rate_pct",
                     color="Issuer",
+                    hover_data={"label": False, "Issuer": False, "exception_rate_pct": ":.4f"},
                     labels={
                         "label": "Deal / Issuer",
                         "exception_rate_pct": "Avg Exception Rate (%)",
@@ -1151,12 +1156,18 @@ with tab3:
                     unsafe_allow_html=True,
                 )
             else:
+                df_trend_plot = df_trend[["Issuer", "filed_date", "exception_rate_pct"]].copy()
+                df_trend_plot["Issuer"] = df_trend_plot["Issuer"].astype(str)
+                df_trend_plot["filed_date"] = pd.to_datetime(df_trend_plot["filed_date"], errors="coerce")
+                df_trend_plot["exception_rate_pct"] = pd.to_numeric(df_trend_plot["exception_rate_pct"], errors="coerce").fillna(0.0)
+                df_trend_plot = df_trend_plot.dropna(subset=["filed_date"])
                 fig_trend = px.line(
-                    df_trend,
+                    df_trend_plot,
                     x="filed_date",
                     y="exception_rate_pct",
                     color="Issuer",
                     markers=True,
+                    hover_data={"filed_date": False, "Issuer": False, "exception_rate_pct": ":.4f"},
                     labels={
                         "filed_date": "Filing Date",
                         "exception_rate_pct": "Avg Exception Rate (%)",
