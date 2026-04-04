@@ -715,21 +715,55 @@ _TABLE_CSS = """<style>
 .styled-table a:hover{text-decoration:underline;}
 .sector-badge{display:inline-block;font-size:0.66rem;font-weight:700;letter-spacing:0.06em;padding:2px 7px;border-radius:3px;}
 .cik-badge{font-family:monospace;font-size:0.78rem;color:#7b5ea7;}
+.styled-table thead th.sortable{cursor:pointer;user-select:none;}
+.styled-table thead th.sortable:hover{color:#a78bfa!important;}
+.styled-table thead th .sort-icon{margin-left:4px;opacity:0.4;font-style:normal;}
+.styled-table thead th.asc .sort-icon::after{content:"▲";opacity:1;}
+.styled-table thead th.desc .sort-icon::after{content:"▼";opacity:1;}
+.styled-table thead th:not(.asc):not(.desc) .sort-icon::after{content:"⇅";}
 </style>"""
 
+_SORT_JS = """<script>
+(function(){
+  const table = document.querySelector('.sortable-table');
+  if(!table) return;
+  let sortCol = -1, sortAsc = true;
+  table.querySelectorAll('thead th.sortable').forEach((th, ci) => {
+    th.addEventListener('click', () => {
+      if(sortCol === ci){ sortAsc = !sortAsc; } else { sortCol = ci; sortAsc = true; }
+      table.querySelectorAll('thead th').forEach(h => h.classList.remove('asc','desc'));
+      th.classList.add(sortAsc ? 'asc' : 'desc');
+      const tbody = table.querySelector('tbody');
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort((a, b) => {
+        const av = a.cells[ci]?.innerText.trim() ?? '';
+        const bv = b.cells[ci]?.innerText.trim() ?? '';
+        const an = parseFloat(av.replace(/[,%]/g,'')), bn = parseFloat(bv.replace(/[,%]/g,''));
+        const cmp = (!isNaN(an) && !isNaN(bn)) ? an - bn : av.localeCompare(bv);
+        return sortAsc ? cmp : -cmp;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    });
+  });
+})();
+</script>"""
 
-def _table_html(df: pd.DataFrame) -> str:
+
+def _table_html(df: pd.DataFrame, sortable: bool = False) -> str:
     """Render a DataFrame as a dark-styled HTML table (self-contained for st.html)."""
     rows_html = ""
     for _, row in df.iterrows():
         cells = "".join(f"<td>{v}</td>" for v in row)
         rows_html += f"<tr>{cells}</tr>"
-    headers = "".join(f"<th>{c}</th>" for c in df.columns)
+    th_class = ' class="sortable"' if sortable else ""
+    headers = "".join(f"<th{th_class}>{c}{' <i class=\'sort-icon\'></i>' if sortable else ''}</th>" for c in df.columns)
+    tbl_class = "styled-table sortable-table" if sortable else "styled-table"
     return (
         f"{_TABLE_CSS}"
         f'<div style="overflow-x:auto;">'
-        f'<table class="styled-table"><thead><tr>{headers}</tr></thead>'
+        f'<table class="{tbl_class}"><thead><tr>{headers}</tr></thead>'
         f"<tbody>{rows_html}</tbody></table></div>"
+        f"{_SORT_JS if sortable else ''}"
     )
 
 
@@ -1296,7 +1330,7 @@ with tab3:
             df_display["Finding %"] = df_display["Finding %"].apply(
                 lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0.0 else ("0.00%" if x == 0.0 else "—")
             )
-            st.html(_table_html(df_display))
+            st.html(_table_html(df_display, sortable=True))
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
