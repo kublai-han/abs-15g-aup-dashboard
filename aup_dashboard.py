@@ -1093,12 +1093,40 @@ with tab3:
             name_map = {k: v["name"] for k, v in ISSUERS.items()}
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 
-            # --- Search bar with magnifying glass icon ---
+            # Build filter options from full data BEFORE search so selections persist
+            all_issuer_opts = ["All Issuers"] + sorted(df["Issuer"].dropna().unique().tolist())
+            all_proc_opts = ["All"] + sorted(
+                df["procedure_number"].dropna().unique().tolist(),
+                key=lambda x: str(x),
+            )
+
+            # --- Search bar ---
             search_query = st.text_input(
                 "Search",
                 placeholder="🔍  Search by issuer, deal name, auditor, finding details…",
                 label_visibility="collapsed",
             )
+
+            # --- Filter bar ---
+            fcol1, fcol2, fcol3 = st.columns(3)
+            with fcol1:
+                st.markdown('<div class="filter-label">Issuer</div>', unsafe_allow_html=True)
+                issuer_filter_sel = st.selectbox(
+                    "IssuerFilter", all_issuer_opts, label_visibility="collapsed", key="issuer_filter"
+                )
+            with fcol2:
+                st.markdown('<div class="filter-label">Procedure Number</div>', unsafe_allow_html=True)
+                proc_filter_sel = st.selectbox(
+                    "ProcFilter", all_proc_opts, label_visibility="collapsed", key="proc_filter"
+                )
+            with fcol3:
+                st.markdown('<div class="filter-label">Min Exception Rate (%)</div>', unsafe_allow_html=True)
+                min_rate = st.number_input(
+                    "MinRate", min_value=0.0, max_value=100.0, value=0.0,
+                    step=0.1, label_visibility="collapsed", key="min_rate_filter"
+                )
+
+            # Apply search
             if search_query:
                 q = search_query.lower()
                 mask = (
@@ -1109,32 +1137,6 @@ with tab3:
                     | df["issuer_key"].str.lower().str.contains(q, na=False)
                 )
                 df = df[mask]
-
-            # --- Filter bar ---
-            st.markdown('<div class="filter-bar">', unsafe_allow_html=True)
-            fcol1, fcol2, fcol3 = st.columns(3)
-            with fcol1:
-                st.markdown('<div class="filter-label">Issuer</div>', unsafe_allow_html=True)
-                issuer_filter_opts = ["All Issuers"] + sorted(df["Issuer"].dropna().unique().tolist())
-                issuer_filter_sel = st.selectbox(
-                    "IssuerFilter", issuer_filter_opts, label_visibility="collapsed"
-                )
-            with fcol2:
-                st.markdown('<div class="filter-label">Procedure Number</div>', unsafe_allow_html=True)
-                proc_opts = ["All"] + sorted(
-                    df["procedure_number"].dropna().unique().tolist(),
-                    key=lambda x: str(x),
-                )
-                proc_filter_sel = st.selectbox(
-                    "ProcFilter", proc_opts, label_visibility="collapsed"
-                )
-            with fcol3:
-                st.markdown('<div class="filter-label">Min Exception Rate (%)</div>', unsafe_allow_html=True)
-                min_rate = st.number_input(
-                    "MinRate", min_value=0.0, max_value=100.0, value=0.0,
-                    step=0.1, label_visibility="collapsed"
-                )
-            st.markdown("</div></div>", unsafe_allow_html=True)
 
             # Apply filters
             df_filtered = df.copy()
