@@ -1012,18 +1012,22 @@ with tab2:
         for r in aup_results:
             exc_rate = r.get("exception_rate")
             exc_rate_str = f"{exc_rate * 100:.2f}%" if exc_rate is not None else "—"
+            pool_raw = r.get("pool_size")
+            pool_str = f"{int(pool_raw):,}" if pool_raw and str(pool_raw).strip() not in ("", "—", "None") else "—"
+            fields_raw = r.get("fields_count")
             result_rows.append({
                 "Trust Series": r.get("deal_name") or "—",
                 "Filing Date": _fmt_date(r.get("filed_date")),
                 "Auditor": r.get("aup_provider") or "—",
-                "Pool Size": r.get("pool_size") or "—",
+                "Pool Size": pool_str,
                 "Sample": r.get("sample_size") or "—",
+                "Fields": str(int(fields_raw)) if fields_raw is not None else "—",
                 "Findings": r.get("exception_count") if r.get("exception_count") is not None else "—",
                 "Finding %": exc_rate_str,
                 "Finding Details": _fmt_finding(r.get("finding")),
             })
         df_res = pd.DataFrame(result_rows)
-        st.dataframe(df_res, use_container_width=True, hide_index=True)
+        st.html(_table_html(df_res))
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
@@ -1268,32 +1272,31 @@ with tab3:
             df_filtered["deal_name"] = df_filtered["deal_name"].fillna("—")
             df_filtered["aup_provider"] = df_filtered["aup_provider"].fillna("—")
             display_cols = ["Issuer", "deal_name", "filed_date", "aup_provider",
-                            "pool_size", "sample_size",
+                            "pool_size", "sample_size", "fields_count",
                             "exception_count", "exception_rate_pct", "finding"]
             df_display = df_filtered[display_cols].copy()
             df_display.columns = [
                 "Company", "Trust Series", "Filing Date", "Auditor",
-                "Pool Size", "Sample",
+                "Pool Size", "Sample", "Fields",
                 "Findings", "Finding %", "Finding Details",
             ]
             df_display["Finding Details"] = df_display["Finding Details"].apply(_fmt_finding)
-            df_display["Filing Date"] = pd.to_datetime(df_display["Filing Date"], errors="coerce")
+            df_display["Filing Date"] = df_display["Filing Date"].apply(
+                lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "—"
+            )
+            df_display["Pool Size"] = df_display["Pool Size"].apply(
+                lambda x: f"{int(x):,}" if x is not None and str(x).strip() not in ("", "—", "None") else "—"
+            )
+            df_display["Fields"] = df_display["Fields"].apply(
+                lambda x: str(int(x)) if pd.notna(x) and x not in (None, "") else "—"
+            )
+            df_display["Findings"] = df_display["Findings"].apply(
+                lambda x: str(int(x)) if pd.notna(x) and x not in (None, "") else "—"
+            )
             df_display["Finding %"] = df_display["Finding %"].apply(
                 lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0.0 else ("0.00%" if x == 0.0 else "—")
             )
-            st.markdown(
-                '<div style="background:#0f1f17;border:1px solid #1e3a2a;border-radius:8px;padding:1.25rem 1.25rem 0.5rem;">',
-                unsafe_allow_html=True,
-            )
-            st.dataframe(
-                df_display,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Filing Date": st.column_config.DateColumn("Filing Date", format="DD MMM YYYY"),
-                },
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
+            st.html(_table_html(df_display))
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
