@@ -1185,11 +1185,14 @@ with tab3:
                 .dropna(subset=["filed_date", "Issuer"])
                 .copy()
             )
-            df_bar_src["label"] = df_bar_src["deal_name"].fillna(df_bar_src["Issuer"])
+            df_bar_src["filed_date"] = pd.to_datetime(df_bar_src["filed_date"], errors="coerce")
+            df_bar_src["deal_label"] = df_bar_src["deal_name"].fillna(df_bar_src["Issuer"])
             df_bar = (
                 df_bar_src
-                .groupby(["Issuer", "label"], as_index=False)["exception_rate_pct"]
+                .dropna(subset=["filed_date"])
+                .groupby(["Issuer", "filed_date", "deal_label"], as_index=False)["exception_rate_pct"]
                 .mean()
+                .sort_values("filed_date")
             )
 
             if df_bar.empty:
@@ -1198,38 +1201,44 @@ with tab3:
                     unsafe_allow_html=True,
                 )
             else:
-                df_bar_plot = df_bar.sort_values("exception_rate_pct", ascending=False).head(20).copy()
-                df_bar_plot["Issuer"] = df_bar_plot["Issuer"].astype(str)
-                df_bar_plot["label"] = df_bar_plot["label"].astype(str)
-                df_bar_plot["exception_rate_pct"] = pd.to_numeric(df_bar_plot["exception_rate_pct"], errors="coerce").fillna(0.0)
+                df_bar["Issuer"] = df_bar["Issuer"].astype(str)
+                df_bar["deal_label"] = df_bar["deal_label"].astype(str)
+                df_bar["exception_rate_pct"] = pd.to_numeric(df_bar["exception_rate_pct"], errors="coerce").fillna(0.0)
                 fig_bar = px.bar(
-                    df_bar_plot,
-                    x="label",
+                    df_bar,
+                    x="filed_date",
                     y="exception_rate_pct",
                     color="Issuer",
-                    hover_data={"label": False, "Issuer": False, "exception_rate_pct": ":.4f"},
+                    hover_data={
+                        "deal_label": True,
+                        "filed_date": False,
+                        "Issuer": False,
+                        "exception_rate_pct": ":.2f",
+                    },
                     labels={
-                        "label": "Deal / Issuer",
+                        "filed_date": "Filing Date",
                         "exception_rate_pct": "Avg Exception Rate (%)",
+                        "deal_label": "Trust Series",
                     },
                     color_discrete_sequence=ISSUER_PALETTE,
+                    barmode="group",
                 )
                 fig_bar.update_layout(**_dark_plotly_layout())
                 fig_bar.update_layout(
                     legend=dict(
                         orientation="h",
-                        y=-0.65,
+                        y=-0.25,
                         x=0.5,
                         xanchor="center",
                         yanchor="top",
                         bgcolor="#1e1e3f", bordercolor="#2d2d5e", borderwidth=1,
                         font=dict(color="#94a3b8", size=10),
                     ),
-                    xaxis_title="Deal / Issuer",
+                    xaxis_title="Filing Date",
                     yaxis_title="Avg Exception Rate (%)",
-                    xaxis_tickangle=-40,
-                    margin=dict(b=240),
-                    height=560,
+                    xaxis=dict(tickformat="%b '%y", tickangle=-40),
+                    margin=dict(b=120),
+                    height=480,
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
 
