@@ -340,20 +340,48 @@ def _parse_html_tables(soup) -> dict:
         if not data_rows:
             continue
 
-        # Count unique exception numbers (first non-empty cell per row)
-        exc_numbers = set()
+        # Word-number map for parsing descriptions like "Two differences..."
+        _WORD_NUM = {
+            "no": 0, "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4,
+            "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+        }
+        _RE_WORD_COUNT = re.compile(
+            r'\b(no|zero|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+'
+            r'(?:differences?|exceptions?|discrepancies?|findings?|errors?)\b',
+            re.IGNORECASE,
+        )
+
+        total_exceptions = 0
+        found_any_count = False
         for cells in data_rows:
-            first = cells[0].strip()
-            if first.isdigit():
-                exc_numbers.add(int(first))
             # Pull description text (second meaningful cell)
+            desc = ""
             for cell in cells[1:]:
-                if len(cell) > 10 and cell not in findings:
-                    findings.append(cell)
+                if len(cell) > 10:
+                    desc = cell
+                    if desc not in findings:
+                        findings.append(desc)
                     break
 
-        if exc_numbers:
-            exception_count = max(exc_numbers)
+            # Try to parse count from description ("Two differences for APR" → 2)
+            m = _RE_WORD_COUNT.search(desc)
+            if m:
+                token = m.group(1).lower()
+                count = _WORD_NUM.get(token, None)
+                if count is None:
+                    try:
+                        count = int(token)
+                    except ValueError:
+                        count = 1
+                total_exceptions += count
+                found_any_count = True
+            else:
+                # Fallback: each row represents one exception
+                total_exceptions += 1
+                found_any_count = True
+
+        if found_any_count:
+            exception_count = total_exceptions
 
     return {
         "exception_count": exception_count,
