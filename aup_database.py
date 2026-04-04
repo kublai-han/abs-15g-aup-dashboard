@@ -513,7 +513,7 @@ def get_aup_results(
     sql = f"""
         SELECT
             p.id, f.issuer_key, f.filed_date, f.accession_no,
-            f.deal_name, f.aup_provider,
+            f.deal_name, f.aup_provider, f.asset_type,
             p.procedure_number,
             p.description   AS procedure_description,
             p.findings_json AS finding,

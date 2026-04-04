@@ -1115,8 +1115,14 @@ with tab3:
             name_map = {k: v["name"] for k, v in ISSUERS.items()}
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 
+            # Normalize asset_type label
+            _ASSET_LABELS = {"consumer_loan": "Consumer Loan", "auto": "Auto Loan"}
+            df["asset_type"] = df["asset_type"].fillna("consumer_loan")
+            df["Asset Type"] = df["asset_type"].map(_ASSET_LABELS).fillna(df["asset_type"])
+
             # Build filter options from full data BEFORE search so selections persist
             all_issuer_opts = ["All Issuers"] + sorted(df["Issuer"].dropna().unique().tolist())
+            all_asset_opts = ["All Asset Types"] + sorted(df["Asset Type"].dropna().unique().tolist())
 
             # --- Search bar ---
             search_query = st.text_input(
@@ -1125,11 +1131,18 @@ with tab3:
                 label_visibility="collapsed",
             )
 
-            # --- Issuer filter ---
-            st.markdown('<div class="filter-label">Issuer</div>', unsafe_allow_html=True)
-            issuer_filter_sel = st.selectbox(
-                "IssuerFilter", all_issuer_opts, label_visibility="collapsed", key="issuer_filter"
-            )
+            # --- Filters ---
+            fcol1, fcol2 = st.columns(2)
+            with fcol1:
+                st.markdown('<div class="filter-label">Issuer</div>', unsafe_allow_html=True)
+                issuer_filter_sel = st.selectbox(
+                    "IssuerFilter", all_issuer_opts, label_visibility="collapsed", key="issuer_filter"
+                )
+            with fcol2:
+                st.markdown('<div class="filter-label">Asset Type</div>', unsafe_allow_html=True)
+                asset_filter_sel = st.selectbox(
+                    "AssetFilter", all_asset_opts, label_visibility="collapsed", key="asset_filter"
+                )
 
             # Apply search
             if search_query:
@@ -1147,6 +1160,8 @@ with tab3:
             df_filtered = df.copy()
             if issuer_filter_sel != "All Issuers":
                 df_filtered = df_filtered[df_filtered["Issuer"] == issuer_filter_sel]
+            if asset_filter_sel != "All Asset Types":
+                df_filtered = df_filtered[df_filtered["Asset Type"] == asset_filter_sel]
 
             st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1247,12 +1262,12 @@ with tab3:
 
             df_filtered["deal_name"] = df_filtered["deal_name"].fillna("—")
             df_filtered["aup_provider"] = df_filtered["aup_provider"].fillna("—")
-            display_cols = ["Issuer", "deal_name", "filed_date", "aup_provider",
+            display_cols = ["Issuer", "Asset Type", "deal_name", "filed_date", "aup_provider",
                             "pool_size", "sample_size", "fields_count",
                             "exception_count", "exception_rate_pct", "finding"]
             df_display = df_filtered[display_cols].copy()
             df_display.columns = [
-                "Company", "Trust Series", "Filing Date", "Auditor",
+                "Company", "Asset Type", "Trust Series", "Filing Date", "Auditor",
                 "Pool Size", "Sample", "Fields",
                 "Findings", "Finding %", "Finding Details",
             ]
