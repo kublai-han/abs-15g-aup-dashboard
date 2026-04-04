@@ -1112,18 +1112,11 @@ with tab3:
             df["exception_rate_pct"] = df["exception_rate"].apply(
                 lambda x: round(x * 100, 4) if pd.notna(x) else 0.0
             )
-            df["procedure_number"] = df["procedure_number"].apply(
-                lambda x: "N/A" if x is None or (isinstance(x, float) and pd.isna(x)) else str(x)
-            )
             name_map = {k: v["name"] for k, v in ISSUERS.items()}
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 
             # Build filter options from full data BEFORE search so selections persist
             all_issuer_opts = ["All Issuers"] + sorted(df["Issuer"].dropna().unique().tolist())
-            all_proc_opts = ["All"] + sorted(
-                df["procedure_number"].dropna().unique().tolist(),
-                key=lambda x: str(x),
-            )
 
             # --- Search bar ---
             search_query = st.text_input(
@@ -1132,24 +1125,11 @@ with tab3:
                 label_visibility="collapsed",
             )
 
-            # --- Filter bar ---
-            fcol1, fcol2, fcol3 = st.columns(3)
-            with fcol1:
-                st.markdown('<div class="filter-label">Issuer</div>', unsafe_allow_html=True)
-                issuer_filter_sel = st.selectbox(
-                    "IssuerFilter", all_issuer_opts, label_visibility="collapsed", key="issuer_filter"
-                )
-            with fcol2:
-                st.markdown('<div class="filter-label">Procedure Number</div>', unsafe_allow_html=True)
-                proc_filter_sel = st.selectbox(
-                    "ProcFilter", all_proc_opts, label_visibility="collapsed", key="proc_filter"
-                )
-            with fcol3:
-                st.markdown('<div class="filter-label">Min Exception Rate (%)</div>', unsafe_allow_html=True)
-                min_rate = st.number_input(
-                    "MinRate", min_value=0.0, max_value=100.0, value=0.0,
-                    step=0.1, label_visibility="collapsed", key="min_rate_filter"
-                )
+            # --- Issuer filter ---
+            st.markdown('<div class="filter-label">Issuer</div>', unsafe_allow_html=True)
+            issuer_filter_sel = st.selectbox(
+                "IssuerFilter", all_issuer_opts, label_visibility="collapsed", key="issuer_filter"
+            )
 
             # Apply search
             if search_query:
@@ -1167,80 +1147,6 @@ with tab3:
             df_filtered = df.copy()
             if issuer_filter_sel != "All Issuers":
                 df_filtered = df_filtered[df_filtered["Issuer"] == issuer_filter_sel]
-            if proc_filter_sel != "All":
-                df_filtered = df_filtered[df_filtered["procedure_number"] == proc_filter_sel]
-            if min_rate > 0:
-                df_filtered = df_filtered[df_filtered["exception_rate_pct"] >= min_rate]
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # --- Bar chart: avg exception rate by issuer + procedure ---
-            st.markdown(
-                '<div class="finsight-section-title">Average Exception Rate by Procedure</div>',
-                unsafe_allow_html=True,
-            )
-
-            df_bar_src = (
-                df_filtered
-                .dropna(subset=["filed_date", "Issuer"])
-                .copy()
-            )
-            df_bar_src["filed_date"] = pd.to_datetime(df_bar_src["filed_date"], errors="coerce")
-            df_bar_src["deal_label"] = df_bar_src["deal_name"].fillna(df_bar_src["Issuer"])
-            df_bar = (
-                df_bar_src
-                .dropna(subset=["filed_date"])
-                .groupby(["Issuer", "filed_date", "deal_label"], as_index=False)["exception_rate_pct"]
-                .mean()
-                .sort_values("filed_date")
-            )
-
-            if df_bar.empty:
-                st.markdown(
-                    '<div class="info-box">No exception rate data available for the selected filters.</div>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                df_bar["Issuer"] = df_bar["Issuer"].astype(str)
-                df_bar["deal_label"] = df_bar["deal_label"].astype(str)
-                df_bar["exception_rate_pct"] = pd.to_numeric(df_bar["exception_rate_pct"], errors="coerce").fillna(0.0)
-                fig_bar = px.bar(
-                    df_bar,
-                    x="filed_date",
-                    y="exception_rate_pct",
-                    color="Issuer",
-                    hover_data={
-                        "deal_label": True,
-                        "filed_date": False,
-                        "Issuer": False,
-                        "exception_rate_pct": ":.2f",
-                    },
-                    labels={
-                        "filed_date": "Filing Date",
-                        "exception_rate_pct": "Avg Exception Rate (%)",
-                        "deal_label": "Trust Series",
-                    },
-                    color_discrete_sequence=ISSUER_PALETTE,
-                    barmode="group",
-                )
-                fig_bar.update_layout(**_dark_plotly_layout())
-                fig_bar.update_layout(
-                    legend=dict(
-                        orientation="h",
-                        y=-0.25,
-                        x=0.5,
-                        xanchor="center",
-                        yanchor="top",
-                        bgcolor="#1e1e3f", bordercolor="#2d2d5e", borderwidth=1,
-                        font=dict(color="#94a3b8", size=10),
-                    ),
-                    xaxis_title="Filing Date",
-                    yaxis_title="Avg Exception Rate (%)",
-                    xaxis=dict(tickformat="%b '%y", tickangle=-40),
-                    margin=dict(b=120),
-                    height=480,
-                )
-                st.plotly_chart(fig_bar, use_container_width=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
 
