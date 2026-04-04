@@ -707,7 +707,7 @@ def _dark_plotly_layout() -> dict:
 
 _TABLE_CSS = """<style>
 .styled-table{width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.5rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
-.styled-table thead th{background:#141428!important;color:#64748b!important;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.55rem 0.85rem;text-align:left!important;}
+.styled-table thead th{background:#141428!important;color:#64748b!important;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.55rem 0.85rem;text-align:left;}
 .styled-table tbody tr{border-bottom:1px solid #1e1e3f;}
 .styled-table tbody tr:hover{background:#1e1e3f;}
 .styled-table tbody td{padding:0.55rem 0.85rem;color:#cbd5e1;vertical-align:middle;}
@@ -717,46 +717,70 @@ _TABLE_CSS = """<style>
 .cik-badge{font-family:monospace;font-size:0.78rem;color:#7b5ea7;}
 .styled-table thead th.sortable{cursor:pointer;user-select:none;}
 .styled-table thead th.sortable:hover{color:#a78bfa!important;}
-.styled-table thead th .sort-icon{margin-left:4px;opacity:0.4;font-style:normal;}
+.styled-table thead th .sort-icon{margin-left:4px;opacity:0.6;font-style:normal;}
 .styled-table thead th.asc .sort-icon::after{content:"▲";opacity:1;}
 .styled-table thead th.desc .sort-icon::after{content:"▼";opacity:1;}
 .styled-table thead th:not(.asc):not(.desc) .sort-icon::after{content:"⇅";}
 </style>"""
 
 _SORT_JS = """<script>
-(function(){
-  const table = document.querySelector('.sortable-table');
-  if(!table) return;
-  let sortCol = -1, sortAsc = true;
-  table.querySelectorAll('thead th.sortable').forEach((th, ci) => {
-    th.addEventListener('click', () => {
-      if(sortCol === ci){ sortAsc = !sortAsc; } else { sortCol = ci; sortAsc = true; }
-      table.querySelectorAll('thead th').forEach(h => h.classList.remove('asc','desc'));
-      th.classList.add(sortAsc ? 'asc' : 'desc');
-      const tbody = table.querySelector('tbody');
-      const rows = Array.from(tbody.querySelectorAll('tr'));
-      rows.sort((a, b) => {
-        const av = a.cells[ci]?.innerText.trim() ?? '';
-        const bv = b.cells[ci]?.innerText.trim() ?? '';
-        const an = parseFloat(av.replace(/[,%]/g,'')), bn = parseFloat(bv.replace(/[,%]/g,''));
-        const cmp = (!isNaN(an) && !isNaN(bn)) ? an - bn : av.localeCompare(bv);
-        return sortAsc ? cmp : -cmp;
-      });
-      rows.forEach(r => tbody.appendChild(r));
-    });
+document.addEventListener('click', function(e) {
+  var th = e.target.closest('thead th.sortable');
+  if (!th) return;
+  var table = th.closest('table.sortable-table');
+  if (!table) return;
+  if (!table._sort) table._sort = {col: -1, asc: true};
+  var ci = Array.from(th.parentElement.children).indexOf(th);
+  if (table._sort.col === ci) { table._sort.asc = !table._sort.asc; }
+  else { table._sort.col = ci; table._sort.asc = true; }
+  table.querySelectorAll('thead th').forEach(function(h) { h.classList.remove('asc','desc'); });
+  th.classList.add(table._sort.asc ? 'asc' : 'desc');
+  var tbody = table.querySelector('tbody');
+  var rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort(function(a, b) {
+    var av = (a.cells[ci] ? a.cells[ci].innerText.trim() : '');
+    var bv = (b.cells[ci] ? b.cells[ci].innerText.trim() : '');
+    var an = parseFloat(av.replace(/[,%]/g,'')), bn = parseFloat(bv.replace(/[,%]/g,''));
+    var cmp = (!isNaN(an) && !isNaN(bn)) ? an - bn : av.localeCompare(bv);
+    return table._sort.asc ? cmp : -cmp;
   });
-})();
+  rows.forEach(function(r) { tbody.appendChild(r); });
+});
 </script>"""
+
+# Columns that are right-aligned (numeric)
+_COL_RIGHT = {"Pool Size", "Sample", "Fields", "Findings", "Finding %",
+              "Avg Exception Rate (%)", "Min (%)", "Max (%)", "# Procedures"}
+# Columns that must not wrap
+_COL_NOWRAP = {"Filing Date", "Trust Series"}
 
 
 def _table_html(df: pd.DataFrame, sortable: bool = False) -> str:
     """Render a DataFrame as a dark-styled HTML table (self-contained for st.html)."""
     rows_html = ""
     for _, row in df.iterrows():
-        cells = "".join(f"<td>{v}</td>" for v in row)
+        cells = ""
+        for col, val in zip(df.columns, row):
+            style = ' style="text-align:right"' if col in _COL_RIGHT else ""
+            cells += f"<td{style}>{val}</td>"
         rows_html += f"<tr>{cells}</tr>"
-    th_class = ' class="sortable"' if sortable else ""
-    headers = "".join(f"<th{th_class}>{c}{' <i class=\'sort-icon\'></i>' if sortable else ''}</th>" for c in df.columns)
+
+    headers = ""
+    for col in df.columns:
+        parts = []
+        if sortable:
+            parts.append('class="sortable"')
+        th_styles = []
+        if col in _COL_RIGHT:
+            th_styles.append("text-align:right")
+        if col in _COL_NOWRAP:
+            th_styles.append("white-space:nowrap")
+        if th_styles:
+            parts.append(f'style="{";".join(th_styles)}"')
+        attrs = (" " + " ".join(parts)) if parts else ""
+        icon = " <i class='sort-icon'></i>" if sortable else ""
+        headers += f"<th{attrs}>{col}{icon}</th>"
+
     tbl_class = "styled-table sortable-table" if sortable else "styled-table"
     return (
         f"{_TABLE_CSS}"
