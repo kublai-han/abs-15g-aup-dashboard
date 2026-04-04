@@ -26,6 +26,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 # ---------------------------------------------------------------------------
 # Path setup
@@ -1329,41 +1330,8 @@ with tab3:
                 unsafe_allow_html=True,
             )
 
-            # Sort controls (server-side — JS sorting is unreliable in st.html iframes)
-            _sort_col_map = {
-                "Filing Date": "filed_date",
-                "Company": "Issuer",
-                "Trust Series": "deal_name",
-                "Auditor": "aup_provider",
-                "Pool Size": "pool_size",
-                "Sample": "sample_size",
-                "Fields": "fields_count",
-                "Findings": "exception_count",
-                "Finding %": "exception_rate_pct",
-            }
-            sc1, sc2 = st.columns([3, 1])
-            with sc1:
-                st.markdown('<div class="filter-label">Sort by</div>', unsafe_allow_html=True)
-                sort_label = st.selectbox(
-                    "SortCol", list(_sort_col_map.keys()), index=0,
-                    label_visibility="collapsed", key="findings_sort_col",
-                )
-            with sc2:
-                st.markdown('<div class="filter-label">Order</div>', unsafe_allow_html=True)
-                sort_asc = st.selectbox(
-                    "SortOrder", ["↑ Ascending", "↓ Descending"], index=0,
-                    label_visibility="collapsed", key="findings_sort_order",
-                )
-
             df_filtered["deal_name"] = df_filtered["deal_name"].fillna("—")
             df_filtered["aup_provider"] = df_filtered["aup_provider"].fillna("—")
-
-            # Sort before formatting
-            _sort_raw_col = _sort_col_map[sort_label]
-            df_filtered = df_filtered.sort_values(
-                _sort_raw_col, ascending=(sort_asc == "↑ Ascending"), na_position="last"
-            )
-
             display_cols = ["Issuer", "deal_name", "filed_date", "aup_provider",
                             "pool_size", "sample_size", "fields_count",
                             "exception_count", "exception_rate_pct", "finding"]
@@ -1389,7 +1357,9 @@ with tab3:
             df_display["Finding %"] = df_display["Finding %"].apply(
                 lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0.0 else ("0.00%" if x == 0.0 else "—")
             )
-            st.html(_table_html(df_display))
+            # Use components.html so JavaScript click events work (st.html iframes block them)
+            tbl_height = min(40 + len(df_display) * 38 + 20, 900)
+            components.html(_table_html(df_display, sortable=True), height=tbl_height, scrolling=False)
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
