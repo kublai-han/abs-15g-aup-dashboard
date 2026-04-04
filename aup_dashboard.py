@@ -1013,7 +1013,7 @@ with tab2:
             exc_rate = r.get("exception_rate")
             exc_rate_str = f"{exc_rate * 100:.2f}%" if exc_rate is not None else "—"
             pool_raw = r.get("pool_size")
-            pool_str = f"{int(pool_raw):,}" if pool_raw and str(pool_raw).strip() not in ("", "—", "None") else "—"
+            pool_str = f"{int(float(pool_raw)):,}" if pool_raw and str(pool_raw).strip() not in ("", "—", "None", "nan") else "—"
             fields_raw = r.get("fields_count")
             result_rows.append({
                 "Trust Series": r.get("deal_name") or "—",
@@ -1285,7 +1285,7 @@ with tab3:
                 lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "—"
             )
             df_display["Pool Size"] = df_display["Pool Size"].apply(
-                lambda x: f"{int(x):,}" if x is not None and str(x).strip() not in ("", "—", "None") else "—"
+                lambda x: f"{int(float(x)):,}" if x is not None and str(x).strip() not in ("", "—", "None", "nan") else "—"
             )
             df_display["Fields"] = df_display["Fields"].apply(
                 lambda x: str(int(x)) if pd.notna(x) and x not in (None, "") else "—"
