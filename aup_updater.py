@@ -61,7 +61,7 @@ USER_AGENT: str = os.environ.get(
 
 # Paths
 BASE_DIR = Path(__file__).parent
-DB_PATH = BASE_DIR / "aup_dashboard.db"
+DB_PATH = BASE_DIR / "aup_data.db"
 LOG_PATH = BASE_DIR / "logs" / "aup_updater.log"
 
 # EDGAR endpoints
