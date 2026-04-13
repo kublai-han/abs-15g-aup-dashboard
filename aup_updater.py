@@ -396,6 +396,7 @@ def fetch_filings_for_issuer(cik: str, issuer_key: str) -> list[dict]:
 def check_for_new_filings(
     since_date: str = "",
     max_new_per_issuer: int = 0,
+    skip_parsing: bool = False,
 ) -> dict:
     """
     Main daily check.
@@ -408,6 +409,9 @@ def check_for_new_filings(
     max_new_per_issuer : int
         Stop processing a given issuer after this many new filings have been
         stored.  0 means no limit.
+    skip_parsing : bool
+        If True, store filing metadata only — skip exhibit download and
+        AUP parsing entirely.  Makes the run much faster.
     """
     summary = {
         "checked_issuers": 0,
@@ -416,6 +420,7 @@ def check_for_new_filings(
         "details": [],
         "_since_date": since_date,
         "_max_new_per_issuer": max_new_per_issuer,
+        "_skip_parsing": skip_parsing,
     }
 
     if not ISSUERS:
@@ -471,26 +476,30 @@ def check_for_new_filings(
                 issuer_key, accession_no, filing["filed_date"],
             )
 
-            # Locate Exhibit 99.1
-            exhibit_url = _find_exhibit_url(cik, accession_no)
+            # Locate and parse Exhibit 99.1 (skip if fast-mode)
+            exhibit_url = None
             aup_data: Optional[dict] = None
 
-            if exhibit_url:
-                logger.info("Parsing exhibit: %s", exhibit_url)
-                try:
-                    aup_data = extract_aup_data(exhibit_url)
-                except Exception as exc:
-                    logger.error(
-                        "Exhibit parse failed for %s / %s: %s",
-                        issuer_key, accession_no, exc,
-                    )
-                    aup_data = {"error": str(exc), "procedures": [], "raw_text": ""}
-                    summary["errors"] += 1
+            if summary.get("_skip_parsing"):
+                logger.debug("skip_parsing=True — skipping exhibit download for %s", accession_no)
             else:
-                logger.warning(
-                    "No Exhibit 99.1 URL found for %s / %s",
-                    issuer_key, accession_no,
-                )
+                exhibit_url = _find_exhibit_url(cik, accession_no)
+                if exhibit_url:
+                    logger.info("Parsing exhibit: %s", exhibit_url)
+                    try:
+                        aup_data = extract_aup_data(exhibit_url)
+                    except Exception as exc:
+                        logger.error(
+                            "Exhibit parse failed for %s / %s: %s",
+                            issuer_key, accession_no, exc,
+                        )
+                        aup_data = {"error": str(exc), "procedures": [], "raw_text": ""}
+                        summary["errors"] += 1
+                else:
+                    logger.warning(
+                        "No Exhibit 99.1 URL found for %s / %s",
+                        issuer_key, accession_no,
+                    )
 
             # Store in DB regardless (so we don't reprocess on next run)
             try:
@@ -539,6 +548,7 @@ def check_for_new_filings(
 def update_all_issuers(
     since_date: str = "",
     max_new_per_issuer: int = 10,
+    skip_parsing: bool = False,
 ) -> None:
     """
     Full update cycle: run check_for_new_filings and log a structured summary.
@@ -550,20 +560,23 @@ def update_all_issuers(
         two years ago so the first run doesn't download decades of history.
     max_new_per_issuer : int
         Cap new filings processed per issuer per run (default 10).
+    skip_parsing : bool
+        Skip exhibit download/parsing — store filing metadata only (fast mode).
     """
     if not since_date:
-        # Default: filings from the past 2 years only
         from datetime import timedelta
         since_date = (datetime.now(timezone.utc) - timedelta(days=730)).strftime("%Y-%m-%d")
 
     logger.info("=" * 60)
     logger.info("AUP Dashboard – daily update started  %s", datetime.now(timezone.utc).isoformat())
-    logger.info("since_date=%s  max_new_per_issuer=%d", since_date, max_new_per_issuer)
+    logger.info("since_date=%s  max_new_per_issuer=%d  skip_parsing=%s",
+                since_date, max_new_per_issuer, skip_parsing)
     logger.info("=" * 60)
 
     summary = check_for_new_filings(
         since_date=since_date,
         max_new_per_issuer=max_new_per_issuer,
+        skip_parsing=skip_parsing,
     )
 
     logger.info("-" * 60)
