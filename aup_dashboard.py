@@ -669,12 +669,13 @@ st.markdown(
 # Main tab layout
 # ---------------------------------------------------------------------------
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Market Overview",
     "Issuer Profiles",
     "AUP Results",
     "DQA Report",
     "Update Log",
+    "AI Verification",
 ])
 
 
@@ -1473,5 +1474,175 @@ with tab5:
                     '<div class="info-box">No filing data available for coverage chart.</div>',
                     unsafe_allow_html=True,
                 )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ===========================================================================
+# TAB 6 — AI VERIFICATION AGENT
+# ===========================================================================
+
+with tab6:
+    st.markdown('<div class="finsight-content">', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="finsight-section-title">AI Verification Agent</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="info-box" style="border-left-color:#7b5ea7;">'
+        "Uses Claude (claude-opus-4-6) to verify exception rate calculations "
+        "and review analysis prompts. Requires <code>ANTHROPIC_API_KEY</code> "
+        "to be set in Streamlit secrets.</div>",
+        unsafe_allow_html=True,
+    )
+
+    import os as _os
+    _api_key = ""
+    try:
+        _api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
+    except Exception:
+        pass
+    if not _api_key:
+        _api_key = _os.environ.get("ANTHROPIC_API_KEY", "")
+
+    if not _api_key:
+        st.markdown(
+            '<div class="info-box" style="border-left-color:#ff4757;">'
+            "&#9888; ANTHROPIC_API_KEY not found. Add it to your Streamlit secrets "
+            "(<b>App Settings → Secrets</b>) to enable the agent.</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        _os.environ.setdefault("ANTHROPIC_API_KEY", _api_key)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- Section 1: Calculation Verification ---
+    st.markdown(
+        '<div class="finsight-section-title">Verify AUP Calculations</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="info-box">Checks that <code>exception_rate = exception_count / pool_size</code> '
+        "for all stored records and flags anomalies.</div>",
+        unsafe_allow_html=True,
+    )
+
+    if st.button("Run Verification", use_container_width=False, key="btn_verify"):
+        if not _api_key:
+            st.error("Set ANTHROPIC_API_KEY in Streamlit secrets first.")
+        else:
+            try:
+                import aup_agent as _agent
+                with st.spinner("Claude is verifying calculations…"):
+                    report = _agent.run_full_verification()
+
+                calc = report.get("calculation_verification", {})
+                status = calc.get("overall_status", "unknown")
+                status_color = {"pass": "#00c896", "warn": "#ffd166", "fail": "#ff4757"}.get(
+                    status, "#94a3b8"
+                )
+                st.markdown(
+                    f"""
+                    <div class="metric-grid">
+                        <div class="metric-card">
+                            <div class="metric-label">Records Checked</div>
+                            <div class="metric-value">{report.get("records_checked", 0)}</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Issues Found</div>
+                            <div class="metric-value" style="color:#ff4757;">
+                                {len(calc.get("issues", []))}
+                            </div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Overall Status</div>
+                            <div class="metric-value" style="color:{status_color};">
+                                {status.upper()}
+                            </div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f'<div class="info-box">{calc.get("summary", "")}</div>',
+                    unsafe_allow_html=True,
+                )
+                issues = calc.get("issues", [])
+                if issues:
+                    st.markdown(
+                        '<div class="finsight-section-title">Issues Detail</div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.dataframe(pd.DataFrame(issues), use_container_width=True, hide_index=True)
+            except Exception as exc:
+                st.error(f"Agent error: {exc}")
+                with st.expander("Traceback"):
+                    import traceback as _tb
+                    st.code(_tb.format_exc())
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- Section 2: Prompt Review ---
+    st.markdown(
+        '<div class="finsight-section-title">Review an Analysis Prompt</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="info-box">Paste any prompt or query you plan to use for AUP data analysis. '
+        "Claude will check it for correctness and suggest improvements.</div>",
+        unsafe_allow_html=True,
+    )
+
+    prompt_input = st.text_area(
+        "Your prompt or query",
+        height=150,
+        placeholder="e.g. 'Show me all issuers with exception rates above 5% in 2024'",
+        label_visibility="collapsed",
+    )
+    context_input = st.text_input(
+        "Context (optional)",
+        placeholder="e.g. 'Used as a filter in the AUP Results tab'",
+        label_visibility="collapsed",
+    )
+
+    if st.button("Review Prompt", use_container_width=False, key="btn_review"):
+        if not _api_key:
+            st.error("Set ANTHROPIC_API_KEY in Streamlit secrets first.")
+        elif not prompt_input.strip():
+            st.warning("Please enter a prompt to review.")
+        else:
+            try:
+                import aup_agent as _agent
+                with st.spinner("Claude is reviewing your prompt…"):
+                    result = _agent.review_prompt(prompt_input, context_input)
+
+                confidence_color = {"high": "#00c896", "medium": "#ffd166", "low": "#ff4757"}.get(
+                    result.get("confidence", "medium"), "#94a3b8"
+                )
+                st.markdown(
+                    f'<div class="info-box"><b>Assessment:</b> {result.get("assessment", "")}</div>',
+                    unsafe_allow_html=True,
+                )
+                for iss in result.get("issues", []):
+                    st.markdown(f"- {iss}")
+                improved = result.get("improved_prompt", "")
+                if improved and improved.strip() != prompt_input.strip():
+                    st.markdown("**Improved prompt:**")
+                    st.code(improved)
+                for sug in result.get("suggestions", []):
+                    st.markdown(f"- {sug}")
+                st.markdown(
+                    f'<div class="info-box">Confidence: '
+                    f'<span style="color:{confidence_color};font-weight:700;">'
+                    f'{result.get("confidence", "").upper()}</span></div>',
+                    unsafe_allow_html=True,
+                )
+            except Exception as exc:
+                st.error(f"Agent error: {exc}")
+                with st.expander("Traceback"):
+                    import traceback as _tb
+                    st.code(_tb.format_exc())
 
     st.markdown("</div>", unsafe_allow_html=True)
