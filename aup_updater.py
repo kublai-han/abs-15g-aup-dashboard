@@ -19,7 +19,6 @@ User-Agent    : required by SEC – set via EDGAR_USER_AGENT env var or
 import json
 import logging
 import os
-import sqlite3
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,6 +34,8 @@ from urllib3.util.retry import Retry
 # ---------------------------------------------------------------------------
 # exhibit_parser lives in the same package / directory
 from exhibit_parser import extract_aup_data
+
+import aup_database as db
 
 # issuers.py is expected to expose:
 #   ISSUERS: dict[str, dict]  where each value has at least a "cik" key.
@@ -151,65 +152,26 @@ def _edgar_get(url: str, **kwargs) -> requests.Response:
 # Database helpers
 # ---------------------------------------------------------------------------
 
-def _get_db() -> sqlite3.Connection:
-    """Open (or create) the SQLite database and ensure schema exists."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    _ensure_schema(conn)
-    return conn
+def _filing_exists(accession_number: str) -> bool:
+    """Return True if this accession number is already in the filings table."""
+    import sqlite3 as _sqlite3
+    if not DB_PATH.exists():
+        return False
+    conn = _sqlite3.connect(DB_PATH)
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM filings WHERE accession_number = ?", (accession_number,)
+        ).fetchone()
+        return row is not None
+    except _sqlite3.OperationalError:
+        return False
+    finally:
+        conn.close()
 
 
-def _ensure_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS filings (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            issuer_key      TEXT    NOT NULL,
-            cik             TEXT    NOT NULL,
-            accession_no    TEXT    NOT NULL UNIQUE,
-            form_type       TEXT,
-            filed_date      TEXT,
-            period_of_report TEXT,
-            exhibit_url     TEXT,
-            fetched_at      TEXT,
-            aup_provider    TEXT,
-            report_date     TEXT,
-            raw_text        TEXT,
-            parse_error     TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS procedures (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            filing_id       INTEGER NOT NULL REFERENCES filings(id),
-            procedure_number INTEGER,
-            description     TEXT,
-            pool_size       TEXT,
-            sample_size     TEXT,
-            exception_count INTEGER,
-            exception_rate  REAL,
-            findings_json   TEXT,
-            raw_text        TEXT
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_filings_issuer  ON filings(issuer_key);
-        CREATE INDEX IF NOT EXISTS idx_filings_accno   ON filings(accession_no);
-        CREATE INDEX IF NOT EXISTS idx_procedures_fid  ON procedures(filing_id);
-        """
-    )
-    conn.commit()
-
-
-def _filing_exists(conn: sqlite3.Connection, accession_no: str) -> bool:
-    row = conn.execute(
-        "SELECT 1 FROM filings WHERE accession_no = ?", (accession_no,)
-    ).fetchone()
-    return row is not None
-
-
-def _insert_filing(
-    conn: sqlite3.Connection,
+def _store_filing(
     issuer_key: str,
+    issuer_info: dict,
     cik: str,
     accession_no: str,
     form_type: str,
@@ -218,53 +180,54 @@ def _insert_filing(
     exhibit_url: Optional[str],
     aup_data: Optional[dict],
 ) -> int:
-    """Insert a filing row and its procedure rows; return the new filing id."""
-    fetched_at = datetime.now(timezone.utc).isoformat()
-    raw_text = aup_data.get("raw_text", "") if aup_data else None
-    aup_provider = aup_data.get("aup_provider") if aup_data else None
-    report_date = aup_data.get("report_date") if aup_data else None
-    parse_error = aup_data.get("error") if aup_data else None
-
-    cur = conn.execute(
-        """
-        INSERT INTO filings
-            (issuer_key, cik, accession_no, form_type, filed_date,
-             period_of_report, exhibit_url, fetched_at,
-             aup_provider, report_date, raw_text, parse_error)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-        """,
-        (
-            issuer_key, cik, accession_no, form_type, filed_date,
-            period_of_report, exhibit_url, fetched_at,
-            aup_provider, report_date, raw_text, parse_error,
-        ),
+    """Insert a filing, its exhibit, and aup_result rows using aup_database; return filing id."""
+    filing_id = db.insert_filing(
+        {
+            "issuer_key":       issuer_key,
+            "issuer_name":      issuer_info.get("name", issuer_key),
+            "cik":              cik,
+            "accession_number": accession_no,
+            "filing_date":      filed_date,
+            "period_of_report": period_of_report,
+            "form_type":        form_type,
+            "primary_doc_url":  exhibit_url,
+        },
+        db_path=DB_PATH,
     )
-    filing_id = cur.lastrowid
 
+    raw_text   = (aup_data or {}).get("raw_text", "")
     procedures = (aup_data or {}).get("procedures", [])
+
+    exhibit_id = db.insert_exhibit(
+        {
+            "filing_id":      filing_id,
+            "exhibit_number": "99.1",
+            "exhibit_url":    exhibit_url,
+            "exhibit_type":   "AUP Report",
+            "raw_text":       raw_text,
+            "parsed_data":    {"procedures": len(procedures)},
+        },
+        db_path=DB_PATH,
+    )
+
     for proc in procedures:
-        conn.execute(
-            """
-            INSERT INTO procedures
-                (filing_id, procedure_number, description, pool_size,
-                 sample_size, exception_count, exception_rate,
-                 findings_json, raw_text)
-            VALUES (?,?,?,?,?,?,?,?,?)
-            """,
-            (
-                filing_id,
-                proc.get("procedure_number"),
-                proc.get("description"),
-                proc.get("pool_size"),
-                proc.get("sample_size"),
-                proc.get("exception_count"),
-                proc.get("exception_rate"),
-                json.dumps(proc.get("findings", [])),
-                proc.get("raw_text"),
-            ),
+        findings = proc.get("findings", [])
+        finding_text = "; ".join(str(f) for f in findings) if findings else proc.get("raw_text", "")
+        db.insert_aup_result(
+            {
+                "exhibit_id":             exhibit_id,
+                "issuer_key":             issuer_key,
+                "filing_date":            filed_date,
+                "procedure_number":       str(proc.get("procedure_number", "")),
+                "procedure_description":  proc.get("description", ""),
+                "finding":                finding_text,
+                "exception_count":        proc.get("exception_count"),
+                "pool_size":              proc.get("pool_size"),
+                "exception_rate":         proc.get("exception_rate"),
+            },
+            db_path=DB_PATH,
         )
 
-    conn.commit()
     logger.info(
         "Stored filing %s for issuer %s (%d procedures)",
         accession_no, issuer_key, len(procedures),
@@ -459,96 +422,93 @@ def check_for_new_filings() -> dict:
         logger.warning("ISSUERS dict is empty – nothing to check.")
         return summary
 
-    conn = _get_db()
+    # Ensure the shared schema exists before any inserts.
+    db.init_db(DB_PATH)
 
-    try:
-        for issuer_key, issuer_info in ISSUERS.items():
-            cik: str = str(issuer_info.get("cik", "")).strip()
-            if not cik:
-                logger.warning("Issuer %s has no CIK – skipping.", issuer_key)
+    for issuer_key, issuer_info in ISSUERS.items():
+        cik: str = str(issuer_info.get("cik", "")).strip()
+        if not cik:
+            logger.warning("Issuer %s has no CIK – skipping.", issuer_key)
+            continue
+
+        summary["checked_issuers"] += 1
+        logger.info("Checking issuer: %s (CIK %s)", issuer_key, cik)
+
+        try:
+            filings = fetch_filings_for_issuer(cik, issuer_key)
+        except Exception as exc:
+            logger.error("Failed to fetch filings for %s: %s", issuer_key, exc)
+            summary["errors"] += 1
+            continue
+
+        for filing in filings:
+            accession_no = filing["accession_no"]
+            if not accession_no:
                 continue
 
-            summary["checked_issuers"] += 1
-            logger.info("Checking issuer: %s (CIK %s)", issuer_key, cik)
+            if _filing_exists(accession_no):
+                logger.debug("Already stored: %s", accession_no)
+                continue
 
+            logger.info(
+                "New filing found: %s %s filed %s",
+                issuer_key, accession_no, filing["filed_date"],
+            )
+
+            # Locate Exhibit 99.1
+            exhibit_url = _find_exhibit_url(cik, accession_no)
+            aup_data: Optional[dict] = None
+
+            if exhibit_url:
+                logger.info("Parsing exhibit: %s", exhibit_url)
+                try:
+                    aup_data = extract_aup_data(exhibit_url)
+                except Exception as exc:
+                    logger.error(
+                        "Exhibit parse failed for %s / %s: %s",
+                        issuer_key, accession_no, exc,
+                    )
+                    aup_data = {"error": str(exc), "procedures": [], "raw_text": ""}
+                    summary["errors"] += 1
+            else:
+                logger.warning(
+                    "No Exhibit 99.1 URL found for %s / %s",
+                    issuer_key, accession_no,
+                )
+
+            # Store in DB regardless (so we don't reprocess on next run)
             try:
-                filings = fetch_filings_for_issuer(cik, issuer_key)
+                filing_id = _store_filing(
+                    issuer_key=issuer_key,
+                    issuer_info=issuer_info,
+                    cik=cik,
+                    accession_no=accession_no,
+                    form_type=filing["form_type"],
+                    filed_date=filing["filed_date"],
+                    period_of_report=filing["period_of_report"],
+                    exhibit_url=exhibit_url,
+                    aup_data=aup_data,
+                )
             except Exception as exc:
-                logger.error("Failed to fetch filings for %s: %s", issuer_key, exc)
+                logger.error(
+                    "DB insert failed for %s / %s: %s",
+                    issuer_key, accession_no, exc,
+                )
                 summary["errors"] += 1
                 continue
 
-            for filing in filings:
-                accession_no = filing["accession_no"]
-                if not accession_no:
-                    continue
-
-                if _filing_exists(conn, accession_no):
-                    logger.debug("Already stored: %s", accession_no)
-                    continue
-
-                logger.info(
-                    "New filing found: %s %s filed %s",
-                    issuer_key, accession_no, filing["filed_date"],
-                )
-
-                # Locate Exhibit 99.1
-                exhibit_url = _find_exhibit_url(cik, accession_no)
-                aup_data: Optional[dict] = None
-
-                if exhibit_url:
-                    logger.info("Parsing exhibit: %s", exhibit_url)
-                    try:
-                        aup_data = extract_aup_data(exhibit_url)
-                    except Exception as exc:
-                        logger.error(
-                            "Exhibit parse failed for %s / %s: %s",
-                            issuer_key, accession_no, exc,
-                        )
-                        aup_data = {"error": str(exc), "procedures": [], "raw_text": ""}
-                        summary["errors"] += 1
-                else:
-                    logger.warning(
-                        "No Exhibit 99.1 URL found for %s / %s",
-                        issuer_key, accession_no,
-                    )
-
-                # Store in DB regardless (so we don't reprocess on next run)
-                try:
-                    filing_id = _insert_filing(
-                        conn=conn,
-                        issuer_key=issuer_key,
-                        cik=cik,
-                        accession_no=accession_no,
-                        form_type=filing["form_type"],
-                        filed_date=filing["filed_date"],
-                        period_of_report=filing["period_of_report"],
-                        exhibit_url=exhibit_url,
-                        aup_data=aup_data,
-                    )
-                except Exception as exc:
-                    logger.error(
-                        "DB insert failed for %s / %s: %s",
-                        issuer_key, accession_no, exc,
-                    )
-                    summary["errors"] += 1
-                    continue
-
-                summary["new_filings"] += 1
-                summary["details"].append(
-                    {
-                        "issuer_key":   issuer_key,
-                        "accession_no": accession_no,
-                        "filed_date":   filing["filed_date"],
-                        "filing_id":    filing_id,
-                        "exhibit_url":  exhibit_url,
-                        "aup_provider": (aup_data or {}).get("aup_provider"),
-                        "procedures":   len((aup_data or {}).get("procedures", [])),
-                    }
-                )
-
-    finally:
-        conn.close()
+            summary["new_filings"] += 1
+            summary["details"].append(
+                {
+                    "issuer_key":   issuer_key,
+                    "accession_no": accession_no,
+                    "filed_date":   filing["filed_date"],
+                    "filing_id":    filing_id,
+                    "exhibit_url":  exhibit_url,
+                    "aup_provider": (aup_data or {}).get("aup_provider"),
+                    "procedures":   len((aup_data or {}).get("procedures", [])),
+                }
+            )
 
     logger.info(
         "Daily check complete – issuers=%d new_filings=%d errors=%d",
