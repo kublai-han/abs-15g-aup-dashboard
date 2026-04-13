@@ -393,29 +393,29 @@ def fetch_filings_for_issuer(cik: str, issuer_key: str) -> list[dict]:
     return filings
 
 
-def check_for_new_filings() -> dict:
+def check_for_new_filings(
+    since_date: str = "",
+    max_new_per_issuer: int = 0,
+) -> dict:
     """
     Main daily check.
 
-    Iterates over all issuers, fetches their EDGAR filing lists, identifies
-    filings not yet in the database, downloads + parses exhibits for each
-    new filing, and persists results.
-
-    Returns
-    -------
-    dict
-        {
-            "checked_issuers": int,
-            "new_filings": int,
-            "errors": int,
-            "details": list[dict]   # one entry per new filing
-        }
+    Parameters
+    ----------
+    since_date : str
+        ISO-8601 date (YYYY-MM-DD).  Only filings on or after this date are
+        processed.  Empty string means no cutoff.
+    max_new_per_issuer : int
+        Stop processing a given issuer after this many new filings have been
+        stored.  0 means no limit.
     """
     summary = {
         "checked_issuers": 0,
         "new_filings": 0,
         "errors": 0,
         "details": [],
+        "_since_date": since_date,
+        "_max_new_per_issuer": max_new_per_issuer,
     }
 
     if not ISSUERS:
@@ -441,7 +441,23 @@ def check_for_new_filings() -> dict:
             summary["errors"] += 1
             continue
 
+        # Apply since_date filter and sort newest-first so we process
+        # recent filings first when max_new_per_issuer is in effect.
+        since_date = summary.get("_since_date", "")
+        if since_date:
+            filings = [f for f in filings if (f.get("filed_date") or "") >= since_date]
+        filings.sort(key=lambda f: f.get("filed_date") or "", reverse=True)
+
+        max_new = summary.get("_max_new_per_issuer", 0)
+        new_this_issuer = 0
+
         for filing in filings:
+            if max_new and new_this_issuer >= max_new:
+                logger.info(
+                    "Reached max_new_per_issuer=%d for %s — stopping early.",
+                    max_new, issuer_key,
+                )
+                break
             accession_no = filing["accession_no"]
             if not accession_no:
                 continue
@@ -498,6 +514,7 @@ def check_for_new_filings() -> dict:
                 continue
 
             summary["new_filings"] += 1
+            new_this_issuer += 1
             summary["details"].append(
                 {
                     "issuer_key":   issuer_key,
@@ -519,16 +536,35 @@ def check_for_new_filings() -> dict:
     return summary
 
 
-def update_all_issuers() -> None:
+def update_all_issuers(
+    since_date: str = "",
+    max_new_per_issuer: int = 10,
+) -> None:
     """
-    Full update cycle: run check_for_new_filings and log a structured
-    summary to both stdout and the log file.
+    Full update cycle: run check_for_new_filings and log a structured summary.
+
+    Parameters
+    ----------
+    since_date : str
+        Only process filings on or after this ISO-8601 date.  Defaults to
+        two years ago so the first run doesn't download decades of history.
+    max_new_per_issuer : int
+        Cap new filings processed per issuer per run (default 10).
     """
+    if not since_date:
+        # Default: filings from the past 2 years only
+        from datetime import timedelta
+        since_date = (datetime.now(timezone.utc) - timedelta(days=730)).strftime("%Y-%m-%d")
+
     logger.info("=" * 60)
     logger.info("AUP Dashboard – daily update started  %s", datetime.now(timezone.utc).isoformat())
+    logger.info("since_date=%s  max_new_per_issuer=%d", since_date, max_new_per_issuer)
     logger.info("=" * 60)
 
-    summary = check_for_new_filings()
+    summary = check_for_new_filings(
+        since_date=since_date,
+        max_new_per_issuer=max_new_per_issuer,
+    )
 
     logger.info("-" * 60)
     logger.info("Summary:")
