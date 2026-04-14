@@ -78,6 +78,26 @@ ISSUERS = {
     "achieve": {
         "name": "Achieve (Freedom Financial Networks)",
         "cik": "0001742848",  # FREED ABS Master Depositor Trust; rebranded shelf to ACHV ABS Trust ~2022
+        "ciks": ["0001742848", "0002033841"],  # also ACHV ABS Master Depositor Trust (newer shelf, 2024+)
+        "type": "consumer_loan",
+        "active": True,
+    },
+    "upstart": {
+        "name": "Upstart Network",
+        "cik": "0001721221",  # Upstart Funding II, LLC (ABS-15G depositor, 23 filings)
+        "type": "consumer_loan",
+        "active": True,
+    },
+    "lendmark": {
+        "name": "Lendmark Financial Services",
+        "cik": "0001802626",  # Lendmark Financial Funding 2020-1, LLC (master filer for group)
+        "ciks": ["0001802626", "0001927039", "0001966142", "0001994514"],  # 2020-1, 2022-1, 2023-1, 2024-1
+        "type": "consumer_loan",
+        "active": True,
+    },
+    "onemain": {
+        "name": "OneMain Financial",
+        "cik": "0001728647",  # Springleaf Funding II, LLC (ABS-15G depositor; OneMain's securitization vehicle)
         "type": "consumer_loan",
         "active": True,
     },

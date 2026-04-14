@@ -1288,8 +1288,8 @@ with tab3:
                 lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0.0 else ("0.00%" if x == 0.0 else "—")
             )
             # Use components.html so JavaScript click events work (st.html iframes block them)
-            tbl_height = min(40 + len(df_display) * 38 + 20, 900)
-            components.html(_table_html(df_display, sortable=True), height=tbl_height, scrolling=False)
+            tbl_height = min(40 + len(df_display) * 38 + 20, 600)
+            components.html(_table_html(df_display, sortable=True), height=tbl_height, scrolling=True)
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
