@@ -75,7 +75,7 @@ ISSUERS = {
         "active": True,
     },
     "achieve": {
-        "name": "Freedom Financial Networks / Achieve (FREED ABS Master Depositor Trust)",
+        "name": "Achieve (Freedom Financial Networks)",
         "cik": "0001742848",  # FREED ABS Master Depositor Trust; rebranded shelf to ACHV ABS Trust ~2022
         "type": "consumer_loan",
         "active": True,
