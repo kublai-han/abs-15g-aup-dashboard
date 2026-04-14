@@ -1,0 +1,52 @@
+name: Daily AUP Database Update
+
+on:
+  schedule:
+    - cron: '0 22 * * *'   # 5 PM ET (EST = UTC-5); shifts to 6 PM during EDT
+  workflow_dispatch:         # allow manual trigger from GitHub Actions UI
+
+permissions:
+  contents: write            # needed to push the updated aup_data.db
+
+jobs:
+  update-database:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run AUP updater
+        env:
+          EDGAR_USER_AGENT: "AUP Dashboard kublai.han@gmail.com"
+        timeout-minutes: 10
+        run: |
+          python -c "
+          import aup_updater
+          aup_updater.update_all_issuers(since_date='2024-01-01', max_new_per_issuer=20, skip_parsing=True)
+          "
+
+      - name: Run verification agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python aup_agent.py || echo "Agent verification skipped (no API key or error)"
+
+      - name: Commit updated database
+        run: |
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions [bot]"
+          git add aup_data.db
+          if git diff --cached --quiet; then
+            echo "No database changes — nothing to commit."
+          else
+            git commit -m "Daily AUP data update $(date -u +%Y-%m-%d)"
+            git push
+          fi

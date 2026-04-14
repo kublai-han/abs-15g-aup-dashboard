@@ -398,7 +398,7 @@ def fetch_filings_for_issuer(cik: str, issuer_key: str) -> list[dict]:
     # EDGAR may split older filings across paginated JSON files; handle the
     # "files" list (additional pages of submission history).
     for extra_file in data.get("filings", {}).get("files", []):
-        extra_url = "https://data.sec.gov" + extra_file.get("name", "")
+        extra_url = "https://data.sec.gov/submissions/" + extra_file.get("name", "")
         if not extra_url.endswith(".json"):
             continue
         try:

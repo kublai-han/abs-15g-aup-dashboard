@@ -75,6 +75,12 @@ ISSUERS = {
         "type": "small_business_loan",
         "active": True,
     },
+    "achieve": {
+        "name": "Achieve (Freedom Financial Networks)",
+        "cik": "0001742848",  # FREED ABS Master Depositor Trust; rebranded shelf to ACHV ABS Trust ~2022
+        "type": "consumer_loan",
+        "active": True,
+    },
 }
 
 
