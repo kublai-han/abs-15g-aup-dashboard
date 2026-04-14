@@ -6,7 +6,7 @@ on:
   workflow_dispatch:         # allow manual trigger from GitHub Actions UI
 
 permissions:
-  contents: write            # needed to push the updated aup_data.db
+  contents: write            # needed to push the updated aup_dashboard.db
 
 jobs:
   update-database:
@@ -28,11 +28,7 @@ jobs:
         env:
           EDGAR_USER_AGENT: "AUP Dashboard kublai.han@gmail.com"
         timeout-minutes: 10
-        run: |
-          python -c "
-          import aup_updater
-          aup_updater.update_all_issuers(since_date='2024-01-01', max_new_per_issuer=20, skip_parsing=True)
-          "
+        run: python -c "import aup_updater; aup_updater.update_all_issuers()"
 
       - name: Run verification agent
         env:
@@ -43,7 +39,7 @@ jobs:
         run: |
           git config user.email "github-actions@github.com"
           git config user.name "GitHub Actions [bot]"
-          git add aup_data.db
+          git add aup_dashboard.db
           if git diff --cached --quiet; then
             echo "No database changes — nothing to commit."
           else
