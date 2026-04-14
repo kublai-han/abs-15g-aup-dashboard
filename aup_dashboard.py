@@ -1113,6 +1113,16 @@ with tab3:
                 lambda x: round(x * 100, 4) if pd.notna(x) else 0.0
             )
             name_map = {k: v["name"] for k, v in ISSUERS.items()}
+            # Explicit overrides guarantee correct capitalisation regardless of import state
+            name_map.update({
+                "upstart": "Upstart Network",
+                "lendmark": "Lendmark Financial Services",
+                "onemain": "OneMain Financial",
+                "achieve": "Achieve (Freedom Financial Networks)",
+                "lendingclub": "LendingClub Corporation",
+                "funding_circle": "Funding Circle / Lendio",
+                "marlette": "Marlette Funding (Best Egg)",
+            })
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 
             # Normalize asset_type label
