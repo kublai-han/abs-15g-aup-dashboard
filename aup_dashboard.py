@@ -1304,6 +1304,13 @@ with tab3:
             df_display["Findings"] = df_display["Findings"].apply(
                 lambda x: str(int(x)) if pd.notna(x) and x not in (None, "") else "—"
             )
+            # Don't show "No exceptions noted" when exception_count > 0 — the finding
+            # text exists but was too short/noisy to survive the formatter's filters.
+            misleading = (
+                (df_display["Finding Details"] == "No exceptions noted")
+                & ~df_display["Findings"].isin(["—", "0"])
+            )
+            df_display.loc[misleading, "Finding Details"] = "—"
             df_display["Finding %"] = df_display["Finding %"].apply(
                 lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0.0 else ("0.00%" if x == 0.0 else "—")
             )
