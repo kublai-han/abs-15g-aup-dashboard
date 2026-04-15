@@ -1192,7 +1192,7 @@ with tab3:
             )
 
             issuers_with_data = sorted(df_filtered["Issuer"].dropna().unique())
-            default_sel = issuers_with_data[:5] if len(issuers_with_data) > 5 else issuers_with_data
+            default_sel = issuers_with_data
 
             st.markdown('<div class="filter-label">Select Issuers for Trend</div>', unsafe_allow_html=True)
             selected_trend_issuers = st.multiselect(
