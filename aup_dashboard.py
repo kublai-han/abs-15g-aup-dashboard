@@ -63,6 +63,14 @@ SECTOR_BADGES: dict[str, tuple[str, str]] = {
     "small_business_loan": ("SMB",  "#db2777"),
 }
 
+ASSET_TYPE_LABELS: dict[str, str] = {
+    "consumer_loan":       "Consumer Loan",
+    "auto":                "Auto",
+    "student_loan":        "Student Loan",
+    "mortgage":            "Mortgage",
+    "small_business_loan": "Small Business Loan",
+}
+
 # Plotly dark palette for multi-issuer charts
 ISSUER_PALETTE = [
     "#7b5ea7", "#4f9cf9", "#00c896", "#ff6b6b", "#ffd166",
@@ -1035,16 +1043,18 @@ with tab2:
         )
     else:
         filing_rows = []
+        asset_type_label = ASSET_TYPE_LABELS.get(issuer_info.get("type", ""), issuer_info.get("type", "—"))
         for f in filings:
-            acc = f.get("accession_number", "")
+            acc = f.get("accession_number", "") or f.get("accession_no", "")
             cik = f.get("cik", issuer_info["cik"])
             filing_url = _accession_url(cik, acc) if acc else ""
             filing_rows.append({
                 "Filing Date": _fmt_date(f.get("filed_date")),
                 "Period of Report": _fmt_date(f.get("period_of_report")),
                 "Form Type": f.get("form_type", "ABS-15G"),
-                "Accession Number": f'<span class="cik-badge">{acc}</span>' if acc else "—",
-                "Filing Index": (
+                "Asset Type": asset_type_label,
+                "Trust Series": f.get("deal_name") or "—",
+                "ABS-15G Filing": (
                     f'<a href="{filing_url}" target="_blank">View &#8599;</a>'
                     if filing_url else "—"
                 ),
