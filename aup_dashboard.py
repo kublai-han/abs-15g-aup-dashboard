@@ -71,6 +71,74 @@ ASSET_TYPE_LABELS: dict[str, str] = {
     "small_business_loan": "Small Business Loan",
 }
 
+# Top-level navigation tree — has_data controls landing card interactivity
+NAV_STRUCTURE: dict[str, dict] = {
+    "abs": {
+        "label": "Asset Backed Securities", "short": "ABS", "color": "#7b5ea7",
+        "subs": [
+            {"key": "auto",           "label": "Auto",           "issuer_type": "auto",          "has_data": False},
+            {"key": "credit_card",    "label": "Credit Card",    "issuer_type": "credit_card",   "has_data": False},
+            {"key": "consumer_loans", "label": "Consumer Loans", "issuer_type": "consumer_loan", "has_data": True},
+            {"key": "esoteric",       "label": "Esoteric",       "issuer_type": "esoteric",      "has_data": False},
+            {"key": "equipment",      "label": "Equipment",      "issuer_type": "equipment",     "has_data": False},
+        ],
+    },
+    "mbs": {
+        "label": "Mortgage Backed Securities", "short": "MBS", "color": "#2563eb",
+        "subs": [
+            {"key": "agency",  "label": "Agency MBS",             "issuer_type": "agency",   "has_data": False},
+            {"key": "crt",     "label": "Credit Risk Transfer",   "issuer_type": "crt",      "has_data": False},
+            {"key": "hei",     "label": "Home Equity Investments","issuer_type": "hei",      "has_data": False},
+            {"key": "nqm",     "label": "Non-Qualified Mortgage", "issuer_type": "mortgage", "has_data": False},
+            {"key": "cmbs",    "label": "Commercial MBS",         "issuer_type": "cmbs",     "has_data": False},
+        ],
+    },
+    "hyc": {
+        "label": "High Yield Corporate", "short": "HYC", "color": "#dc2626",
+        "subs": [
+            {"key": "hy_bonds",  "label": "HY Bonds",        "issuer_type": "hy_bonds",  "has_data": False},
+            {"key": "lev_loans", "label": "Leveraged Loans", "issuer_type": "lev_loans", "has_data": False},
+            {"key": "clo",       "label": "CLOs",             "issuer_type": "clo",       "has_data": False},
+            {"key": "bdc",       "label": "BDCs",             "issuer_type": "bdc",       "has_data": False},
+        ],
+    },
+    "igc": {
+        "label": "Investment Grade Corporate", "short": "IGC", "color": "#059669",
+        "subs": [
+            {"key": "ig_bonds",  "label": "IG Bonds",      "issuer_type": "ig_bonds",  "has_data": False},
+            {"key": "ig_loans",  "label": "IG Loans",      "issuer_type": "ig_loans",  "has_data": False},
+            {"key": "covered",   "label": "Covered Bonds", "issuer_type": "covered",   "has_data": False},
+        ],
+    },
+}
+
+_SUBCAT_ICONS: dict[str, str] = {
+    "auto": "🚗", "credit_card": "💳", "consumer_loans": "👤",
+    "esoteric": "⚡", "equipment": "🏗️", "agency": "🏛️", "crt": "🛡️",
+    "hei": "🏠", "nqm": "🏡", "cmbs": "🏢", "hy_bonds": "📈",
+    "lev_loans": "💰", "clo": "🔗", "bdc": "💼", "ig_bonds": "🏅",
+    "ig_loans": "🤝", "covered": "🔒",
+}
+_SUBCAT_DESCS: dict[str, str] = {
+    "auto": "Auto loan and floorplan ABS",
+    "credit_card": "Credit card receivables ABS",
+    "consumer_loans": "Personal and installment loan ABS",
+    "esoteric": "Non-traditional collateral ABS",
+    "equipment": "Equipment lease and loan ABS",
+    "agency": "FNMA, FHLMC, GNMA MBS pools",
+    "crt": "GSE credit risk sharing transactions",
+    "hei": "Home equity investment products",
+    "nqm": "Non-QM and alternative mortgage",
+    "cmbs": "Commercial real estate backed",
+    "hy_bonds": "Below investment-grade corporate bonds",
+    "lev_loans": "Syndicated leveraged loans",
+    "clo": "Collateralized loan obligations",
+    "bdc": "Business development companies",
+    "ig_bonds": "Investment-grade corporate bonds",
+    "ig_loans": "Investment-grade syndicated loans",
+    "covered": "Covered bonds and structured notes",
+}
+
 # Plotly dark palette for multi-issuer charts
 ISSUER_PALETTE = [
     "#7b5ea7", "#4f9cf9", "#00c896", "#ff6b6b", "#ffd166",
@@ -578,6 +646,140 @@ st.markdown(
             color: #64748b;
             margin-bottom: 0.4rem;
         }
+
+        /* ── Top navigation bar ── */
+        .top-nav-bar {
+            background: #141428;
+            border-bottom: 1px solid #2d2d5e;
+            padding: 0;
+            display: flex;
+            overflow-x: auto;
+        }
+        .top-nav-item {
+            padding: 0.9rem 1.6rem;
+            font-size: 0.84rem;
+            font-weight: 500;
+            color: #64748b;
+            border-bottom: 2px solid transparent;
+            text-decoration: none !important;
+            white-space: nowrap;
+            transition: color 0.15s;
+            display: inline-block;
+        }
+        .top-nav-item:hover { color: #e2e8f0; }
+        .top-nav-item.nav-active {
+            color: #a78bfa;
+            border-bottom-color: #7b5ea7;
+            font-weight: 600;
+        }
+
+        /* ── Sub navigation bar (shown inside a subcategory) ── */
+        .sub-nav-bar {
+            background: #0f0f24;
+            border-bottom: 1px solid #1e1e3f;
+            padding: 0;
+            display: flex;
+        }
+        .sub-nav-item {
+            padding: 0.55rem 1.2rem;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: #64748b;
+            border-bottom: 2px solid transparent;
+            text-decoration: none !important;
+            white-space: nowrap;
+            transition: color 0.15s;
+            display: inline-block;
+        }
+        .sub-nav-item:hover { color: #94a3b8; }
+        .sub-nav-item.sub-nav-active {
+            color: #a78bfa;
+            border-bottom-color: #7b5ea7;
+            font-weight: 600;
+        }
+        .sub-nav-item.sub-nav-disabled {
+            opacity: 0.38;
+            pointer-events: none;
+            cursor: default;
+        }
+
+        /* ── Section hero (landing page header) ── */
+        .section-hero {
+            padding: 2.5rem 0 1.75rem;
+            border-bottom: 1px solid #1e1e3f;
+            margin-bottom: 2rem;
+        }
+        .section-hero-badge {
+            display: inline-block;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 3px 10px;
+            border-radius: 4px;
+            margin-bottom: 0.75rem;
+        }
+        .section-hero-title {
+            font-size: 1.85rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+            margin-bottom: 0.4rem;
+        }
+        .section-hero-sub {
+            font-size: 0.84rem;
+            color: #64748b;
+        }
+
+        /* ── Subcategory card grid ── */
+        .subcat-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1rem;
+            margin: 1rem 0 2.5rem;
+        }
+        @media (max-width: 1050px) { .subcat-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 640px)  { .subcat-grid { grid-template-columns: repeat(2, 1fr); } }
+        .subcat-card {
+            background: #1e1e3f;
+            border: 1px solid #2d2d5e;
+            border-radius: 10px;
+            padding: 1.4rem 1.2rem 1.2rem;
+            text-decoration: none !important;
+            display: block;
+            transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+        }
+        .subcat-card:hover {
+            border-color: #7b5ea7;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px #7b5ea722;
+        }
+        .subcat-card.no-data { opacity: 0.42; cursor: default; }
+        .subcat-card.no-data:hover {
+            border-color: #2d2d5e;
+            transform: none;
+            box-shadow: none;
+        }
+        .subcat-card-icon { font-size: 1.6rem; display: block; margin-bottom: 0.75rem; }
+        .subcat-card-title { font-size: 0.95rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.35rem; line-height: 1.25; }
+        .subcat-card-meta { font-size: 0.73rem; color: #64748b; line-height: 1.5; margin-bottom: 0.55rem; }
+        .subcat-card-live { display: inline-block; font-size: 0.64rem; font-weight: 700; color: #00c896; background: #00c89614; border: 1px solid #00c89638; border-radius: 3px; padding: 2px 7px; }
+        .subcat-card-soon { display: inline-block; font-size: 0.64rem; font-weight: 700; color: #64748b; background: #64748b14; border: 1px solid #64748b38; border-radius: 3px; padding: 2px 7px; }
+
+        /* ── Breadcrumb ── */
+        .nav-breadcrumb {
+            font-size: 0.78rem;
+            color: #64748b;
+            padding: 0.6rem 0 0.15rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .nav-breadcrumb a { color: #7b5ea7; text-decoration: none; }
+        .nav-breadcrumb a:hover { text-decoration: underline; }
+        .nav-breadcrumb .sep { color: #2d2d5e; font-size: 0.7rem; }
+        .nav-breadcrumb .bc-current { color: #94a3b8; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -807,32 +1009,154 @@ def _table_html(df: pd.DataFrame, sortable: bool = False) -> str:
 now_utc = datetime.now(timezone.utc)
 last_updated_str = now_utc.strftime("%d %b %Y %H:%M UTC")
 
+# ---------------------------------------------------------------------------
+# Navigation state (driven by URL query params)
+# ---------------------------------------------------------------------------
+_qp = st.query_params
+nav_main = _qp.get("nav", "abs")
+nav_sub  = _qp.get("sub", "")
+if nav_main not in NAV_STRUCTURE:
+    nav_main = "abs"
+
+_section  = NAV_STRUCTURE[nav_main]
+_sub_info = next((s for s in _section["subs"] if s["key"] == nav_sub), None)
+
+# ---------------------------------------------------------------------------
+# Header + top nav bar
+# ---------------------------------------------------------------------------
+_top_nav_html = "".join(
+    f'<a href="?nav={k}" class="top-nav-item{"  nav-active" if k == nav_main else ""}">{v["label"]}</a>'
+    for k, v in NAV_STRUCTURE.items()
+)
+
+# Secondary sub-nav bar: only render when inside a live data subcategory
+_sub_nav_html = ""
+if nav_sub and _sub_info:
+    _sub_items = "".join(
+        f'<a href="?nav={nav_main}&sub={s["key"]}" '
+        f'class="sub-nav-item{" sub-nav-active" if s["key"] == nav_sub else ""}'
+        f'{" sub-nav-disabled" if not s["has_data"] else ""}">'
+        f'{s["label"]}</a>'
+        for s in _section["subs"]
+    )
+    _sub_nav_html = (
+        f'<div class="sub-nav-bar">'
+        f'<div class="page-wrapper" style="display:flex;width:100%;padding-top:0;padding-bottom:0;">'
+        f'{_sub_items}</div></div>'
+    )
+
 st.markdown(
     f"""
     <div class="finsight-header">
         <div class="page-wrapper" style="display:flex;align-items:center;gap:1.25rem;width:100%;padding-top:0;padding-bottom:0;">
             <div class="finsight-logo">
-                <span class="finsight-logo-badge">ABS</span>ABS-15G AUP Monitor
+                <span class="finsight-logo-badge">AUP</span>AUP Monitor
             </div>
             <div class="header-spacer"></div>
-            <div class="finsight-updated-badge">Last Updated: {last_updated_str}</div>
+            <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
         </div>
     </div>
+    <div class="top-nav-bar">
+        <div class="page-wrapper" style="display:flex;width:100%;padding-top:0;padding-bottom:0;">
+            {_top_nav_html}
+        </div>
+    </div>
+    {_sub_nav_html}
     """,
     unsafe_allow_html=True,
 )
 
 # ---------------------------------------------------------------------------
-# Main tab layout
+# Content routing
 # ---------------------------------------------------------------------------
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "Market Overview",
-    "Issuer Profiles",
-    "AUP Results",
-    "DQA Report",
-    "Update Log",
-])
+if not nav_sub:
+    # ── Subcategory landing page ──────────────────────────────────────────
+    _c = _section["color"]
+    _cards = ""
+    for _s in _section["subs"]:
+        _icon = _SUBCAT_ICONS.get(_s["key"], "📋")
+        _desc = _SUBCAT_DESCS.get(_s["key"], "")
+        if _s["has_data"]:
+            _cards += (
+                f'<a href="?nav={nav_main}&sub={_s["key"]}" class="subcat-card">'
+                f'<span class="subcat-card-icon">{_icon}</span>'
+                f'<div class="subcat-card-title">{_s["label"]}</div>'
+                f'<div class="subcat-card-meta">{_desc}</div>'
+                f'<span class="subcat-card-live">&#9679; Live Data</span></a>'
+            )
+        else:
+            _cards += (
+                f'<div class="subcat-card no-data">'
+                f'<span class="subcat-card-icon">{_icon}</span>'
+                f'<div class="subcat-card-title">{_s["label"]}</div>'
+                f'<div class="subcat-card-meta">{_desc}</div>'
+                f'<span class="subcat-card-soon">Coming Soon</span></div>'
+            )
+
+    st.markdown(
+        f"""
+        <div class="finsight-content"><div class="page-wrapper">
+          <div class="section-hero">
+            <div class="section-hero-badge" style="background:{_c}22;color:{_c};border:1px solid {_c}55;">{_section["short"]}</div>
+            <div class="section-hero-title">{_section["label"]}</div>
+            <div class="section-hero-sub">SEC ABS-15G AUP Procedure Monitor — select an asset class below</div>
+          </div>
+          <div class="subcat-grid">{_cards}</div>
+        </div></div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.stop()
+
+elif _sub_info is None:
+    st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
+    st.error(f"Unknown subcategory: {nav_sub!r}")
+    st.markdown('</div></div>', unsafe_allow_html=True)
+    st.stop()
+
+elif not _sub_info.get("has_data"):
+    # ── Coming Soon page ──────────────────────────────────────────────────
+    _c = _section["color"]
+    st.markdown(
+        f"""
+        <div class="finsight-content"><div class="page-wrapper">
+          <div class="section-hero">
+            <div class="section-hero-badge" style="background:{_c}22;color:{_c};border:1px solid {_c}55;">{_section["short"]}</div>
+            <div class="section-hero-title">{_sub_info["label"]}</div>
+            <div class="section-hero-sub">{_section["label"]} — Coverage Coming Soon</div>
+          </div>
+          <div class="info-box">
+            AUP procedure data for <b>{_sub_info["label"]}</b> is not yet available.
+            Coverage will be added as SEC ABS-15G filers are onboarded for this asset class.
+          </div>
+        </div></div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.stop()
+
+else:
+    # ── Live data page — breadcrumb + inner tabs ──────────────────────────
+    st.markdown(
+        f'<div class="nav-breadcrumb page-wrapper">'
+        f'<a href="?nav={nav_main}">{_section["label"]}</a>'
+        f'<span class="sep">›</span>'
+        f'<span class="bc-current">{_sub_info["label"]}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ---------------------------------------------------------------------------
+    # Main tab layout
+    # ---------------------------------------------------------------------------
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "Market Overview",
+        "Issuer Profiles",
+        "AUP Results",
+        "DQA Report",
+        "Update Log",
+    ])
 
 
 # ===========================================================================
