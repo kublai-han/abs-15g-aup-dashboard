@@ -1010,41 +1010,25 @@ now_utc = datetime.now(timezone.utc)
 last_updated_str = now_utc.strftime("%d %b %Y %H:%M UTC")
 
 # ---------------------------------------------------------------------------
-# Navigation state (driven by URL query params)
+# Navigation state — session state (no URL changes, no new-page feel)
 # ---------------------------------------------------------------------------
-_qp = st.query_params
-nav_main = _qp.get("nav", "abs")
-nav_sub  = _qp.get("sub", "")
+if "nav_main" not in st.session_state:
+    st.session_state["nav_main"] = "abs"
+if "nav_sub" not in st.session_state:
+    st.session_state["nav_sub"] = ""
+
+nav_main = st.session_state["nav_main"]
+nav_sub  = st.session_state["nav_sub"]
 if nav_main not in NAV_STRUCTURE:
     nav_main = "abs"
+    st.session_state["nav_main"] = "abs"
 
 _section  = NAV_STRUCTURE[nav_main]
 _sub_info = next((s for s in _section["subs"] if s["key"] == nav_sub), None)
 
 # ---------------------------------------------------------------------------
-# Header + top nav bar
+# Header bar (logo + timestamp, no nav links)
 # ---------------------------------------------------------------------------
-_top_nav_html = "".join(
-    f'<a href="?nav={k}" class="top-nav-item{"  nav-active" if k == nav_main else ""}">{v["label"]}</a>'
-    for k, v in NAV_STRUCTURE.items()
-)
-
-# Secondary sub-nav bar: only render when inside a live data subcategory
-_sub_nav_html = ""
-if nav_sub and _sub_info:
-    _sub_items = "".join(
-        f'<a href="?nav={nav_main}&sub={s["key"]}" '
-        f'class="sub-nav-item{" sub-nav-active" if s["key"] == nav_sub else ""}'
-        f'{" sub-nav-disabled" if not s["has_data"] else ""}">'
-        f'{s["label"]}</a>'
-        for s in _section["subs"]
-    )
-    _sub_nav_html = (
-        f'<div class="sub-nav-bar">'
-        f'<div class="page-wrapper" style="display:flex;width:100%;padding-top:0;padding-bottom:0;">'
-        f'{_sub_items}</div></div>'
-    )
-
 st.markdown(
     f"""
     <div class="finsight-header">
@@ -1056,15 +1040,56 @@ st.markdown(
             <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
         </div>
     </div>
-    <div class="top-nav-bar">
-        <div class="page-wrapper" style="display:flex;width:100%;padding-top:0;padding-bottom:0;">
-            {_top_nav_html}
-        </div>
-    </div>
-    {_sub_nav_html}
     """,
     unsafe_allow_html=True,
 )
+
+# ---------------------------------------------------------------------------
+# Top nav — Streamlit buttons styled as nav bar via CSS sentinel trick
+# ---------------------------------------------------------------------------
+_nav_keys = list(NAV_STRUCTURE.keys())
+_nav_active_idx = _nav_keys.index(nav_main) + 1  # 1-indexed for nth-child
+
+st.markdown(
+    f"""<style>
+    .element-container:has(.top-nav-sentinel) + [data-testid="stHorizontalBlock"] {{
+        background: #141428; border-bottom: 1px solid #2d2d5e;
+        margin-bottom: 0 !important; gap: 0 !important; margin-top: 0 !important;
+    }}
+    .element-container:has(.top-nav-sentinel) + [data-testid="stHorizontalBlock"] [data-testid="column"] {{
+        padding: 0 !important; flex: 1 !important;
+    }}
+    .element-container:has(.top-nav-sentinel) + [data-testid="stHorizontalBlock"] .stButton {{
+        padding: 0 !important; margin: 0 !important;
+    }}
+    .element-container:has(.top-nav-sentinel) + [data-testid="stHorizontalBlock"] button {{
+        background: transparent !important; border: none !important;
+        border-bottom: 2px solid transparent !important; border-radius: 0 !important;
+        color: #64748b !important; font-size: 0.83rem !important; font-weight: 500 !important;
+        padding: 0.9rem 1rem !important; width: 100% !important; box-shadow: none !important;
+        white-space: nowrap !important; transition: color 0.15s !important;
+    }}
+    .element-container:has(.top-nav-sentinel) + [data-testid="stHorizontalBlock"] button:hover {{
+        color: #e2e8f0 !important; background: transparent !important;
+    }}
+    .element-container:has(.top-nav-sentinel) + [data-testid="stHorizontalBlock"] button:focus,
+    .element-container:has(.top-nav-sentinel) + [data-testid="stHorizontalBlock"] button:active {{
+        box-shadow: none !important; background: transparent !important; outline: none !important;
+    }}
+    .element-container:has(.top-nav-sentinel) + [data-testid="stHorizontalBlock"] [data-testid="column"]:nth-child({_nav_active_idx}) button {{
+        color: #a78bfa !important; border-bottom-color: #7b5ea7 !important; font-weight: 600 !important;
+    }}
+    </style><div class="top-nav-sentinel"></div>""",
+    unsafe_allow_html=True,
+)
+
+_ncols = st.columns(len(NAV_STRUCTURE), gap="small")
+for _i, (_k, _v) in enumerate(NAV_STRUCTURE.items()):
+    with _ncols[_i]:
+        if st.button(_v["label"], key=f"mainnav_{_k}", use_container_width=True):
+            st.session_state["nav_main"] = _k
+            st.session_state["nav_sub"] = ""
+            st.rerun()
 
 # ---------------------------------------------------------------------------
 # Content routing
@@ -1073,27 +1098,6 @@ st.markdown(
 if not nav_sub:
     # ── Subcategory landing page ──────────────────────────────────────────
     _c = _section["color"]
-    _cards = ""
-    for _s in _section["subs"]:
-        _icon = _SUBCAT_ICONS.get(_s["key"], "📋")
-        _desc = _SUBCAT_DESCS.get(_s["key"], "")
-        if _s["has_data"]:
-            _cards += (
-                f'<a href="?nav={nav_main}&sub={_s["key"]}" class="subcat-card">'
-                f'<span class="subcat-card-icon">{_icon}</span>'
-                f'<div class="subcat-card-title">{_s["label"]}</div>'
-                f'<div class="subcat-card-meta">{_desc}</div>'
-                f'<span class="subcat-card-live">&#9679; Live Data</span></a>'
-            )
-        else:
-            _cards += (
-                f'<div class="subcat-card no-data">'
-                f'<span class="subcat-card-icon">{_icon}</span>'
-                f'<div class="subcat-card-title">{_s["label"]}</div>'
-                f'<div class="subcat-card-meta">{_desc}</div>'
-                f'<span class="subcat-card-soon">Coming Soon</span></div>'
-            )
-
     st.markdown(
         f"""
         <div class="finsight-content"><div class="page-wrapper">
@@ -1102,11 +1106,50 @@ if not nav_sub:
             <div class="section-hero-title">{_section["label"]}</div>
             <div class="section-hero-sub">SEC ABS-15G AUP Procedure Monitor — select an asset class below</div>
           </div>
-          <div class="subcat-grid">{_cards}</div>
         </div></div>
         """,
         unsafe_allow_html=True,
     )
+
+    # Card grid — Streamlit buttons styled as cards via CSS sentinel
+    st.markdown(
+        """<style>
+        .element-container:has(.subcat-card-sentinel) + [data-testid="stHorizontalBlock"] .stButton {
+            padding: 0 !important; margin: 0.25rem !important;
+        }
+        .element-container:has(.subcat-card-sentinel) + [data-testid="stHorizontalBlock"] button {
+            background: #1e1e3f !important; border: 1px solid #2d2d5e !important;
+            border-radius: 10px !important; color: #f1f5f9 !important;
+            padding: 1.4rem 1.2rem 1.2rem !important; min-height: 145px !important;
+            text-align: left !important; white-space: pre-line !important;
+            height: 100% !important; width: 100% !important; line-height: 1.65 !important;
+            font-size: 0.88rem !important; font-weight: 400 !important;
+            box-shadow: none !important; transition: border-color 0.15s, transform 0.12s !important;
+        }
+        .element-container:has(.subcat-card-sentinel) + [data-testid="stHorizontalBlock"] button:hover {
+            border-color: #7b5ea7 !important; transform: translateY(-2px) !important;
+            background: #1e1e3f !important;
+        }
+        .element-container:has(.subcat-card-sentinel) + [data-testid="stHorizontalBlock"] button:disabled {
+            opacity: 0.42 !important; cursor: default !important;
+            transform: none !important; border-color: #2d2d5e !important;
+        }
+        </style><div class="subcat-card-sentinel"></div>""",
+        unsafe_allow_html=True,
+    )
+
+    _subs = _section["subs"]
+    _ccols = st.columns(len(_subs))
+    for _i, _s in enumerate(_subs):
+        with _ccols[_i]:
+            _icon = _SUBCAT_ICONS.get(_s["key"], "📋")
+            _desc = _SUBCAT_DESCS.get(_s["key"], "")
+            _status = "● Live Data" if _s["has_data"] else "Coming Soon"
+            _lbl = f"{_icon}  {_s['label']}\n\n{_desc}\n\n{_status}"
+            if st.button(_lbl, key=f"card_{_s['key']}", use_container_width=True,
+                         disabled=not _s["has_data"]):
+                st.session_state["nav_sub"] = _s["key"]
+                st.rerun()
     st.stop()
 
 elif _sub_info is None:
@@ -1137,23 +1180,84 @@ elif not _sub_info.get("has_data"):
     st.stop()
 
 else:
-    # ── Live data page — breadcrumb + inner tabs ──────────────────────────
+    # ── Live data page — sub-nav bar + breadcrumb + inner tabs ────────────
+
+    # Secondary sub-nav (styled buttons, same sentinel approach)
+    _subs = _section["subs"]
+    _sub_active_idx = next((i + 1 for i, s in enumerate(_subs) if s["key"] == nav_sub), 1)
+
     st.markdown(
-        f'<div class="nav-breadcrumb page-wrapper">'
-        f'<a href="?nav={nav_main}">{_section["label"]}</a>'
-        f'<span class="sep">›</span>'
-        f'<span class="bc-current">{_sub_info["label"]}</span>'
-        f'</div>',
+        f"""<style>
+        .element-container:has(.sub-nav-sentinel) + [data-testid="stHorizontalBlock"] {{
+            background: #0f0f24; border-bottom: 1px solid #1e1e3f;
+            margin-bottom: 0 !important; gap: 0 !important; margin-top: 0 !important;
+        }}
+        .element-container:has(.sub-nav-sentinel) + [data-testid="stHorizontalBlock"] [data-testid="column"] {{
+            padding: 0 !important;
+        }}
+        .element-container:has(.sub-nav-sentinel) + [data-testid="stHorizontalBlock"] .stButton {{
+            padding: 0 !important; margin: 0 !important;
+        }}
+        .element-container:has(.sub-nav-sentinel) + [data-testid="stHorizontalBlock"] button {{
+            background: transparent !important; border: none !important;
+            border-bottom: 2px solid transparent !important; border-radius: 0 !important;
+            color: #4a5568 !important; font-size: 0.77rem !important; font-weight: 500 !important;
+            padding: 0.55rem 0.75rem !important; width: 100% !important;
+            box-shadow: none !important; white-space: nowrap !important;
+        }}
+        .element-container:has(.sub-nav-sentinel) + [data-testid="stHorizontalBlock"] button:hover {{
+            color: #94a3b8 !important; background: transparent !important;
+        }}
+        .element-container:has(.sub-nav-sentinel) + [data-testid="stHorizontalBlock"] button:focus,
+        .element-container:has(.sub-nav-sentinel) + [data-testid="stHorizontalBlock"] button:active {{
+            box-shadow: none !important; background: transparent !important;
+        }}
+        .element-container:has(.sub-nav-sentinel) + [data-testid="stHorizontalBlock"] [data-testid="column"]:nth-child({_sub_active_idx}) button {{
+            color: #a78bfa !important; border-bottom-color: #7b5ea7 !important; font-weight: 600 !important;
+        }}
+        .element-container:has(.sub-nav-sentinel) + [data-testid="stHorizontalBlock"] button:disabled {{
+            opacity: 0.3 !important;
+        }}
+        </style><div class="sub-nav-sentinel"></div>""",
         unsafe_allow_html=True,
     )
 
+    _scols = st.columns(len(_subs), gap="small")
+    for _i, _s in enumerate(_subs):
+        with _scols[_i]:
+            if st.button(_s["label"], key=f"subnav_{_s['key']}", use_container_width=True,
+                         disabled=not _s["has_data"]):
+                st.session_state["nav_sub"] = _s["key"]
+                st.rerun()
+
+    # Breadcrumb with back button
+    _bc1, _bc2 = st.columns([2, 8])
+    with _bc1:
+        if st.button(f"← {_section['label']}", key="breadcrumb_back"):
+            st.session_state["nav_sub"] = ""
+            st.rerun()
+    with _bc2:
+        st.markdown(
+            f'<div class="nav-breadcrumb" style="padding-top:0.55rem;">'
+            f'<span class="sep">›</span>'
+            f'<span class="bc-current">{_sub_info["label"]}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
     # ---------------------------------------------------------------------------
-    # Main tab layout
+    # Main tab layout — AUP Results is first (default selected tab)
+    # Tab variables are assigned so existing content blocks need no changes:
+    #   tab3 → "AUP Results"  (was originally tab3)
+    #   tab2 → "Issuer Profiles" (was tab2)
+    #   tab1 → "Market Overview"  (was tab1)
+    #   tab4 → "DQA Report"       (was tab4)
+    #   tab5 → "Update Log"       (was tab5)
     # ---------------------------------------------------------------------------
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "Market Overview",
-        "Issuer Profiles",
+    tab3, tab2, tab1, tab4, tab5 = st.tabs([
         "AUP Results",
+        "Issuer Profiles",
+        "Market Overview",
         "DQA Report",
         "Update Log",
     ])
