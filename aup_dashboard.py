@@ -1065,6 +1065,29 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+# Patch nav links so they navigate in the same tab instead of opening new pages.
+# components.html runs in an iframe; window.parent.location.href changes the main page URL.
+components.html("""
+<script>
+(function() {
+    function patchNavLinks() {
+        try {
+            var p = window.parent.document;
+            p.querySelectorAll('a.top-nav-item, a.sub-nav-item, a.subcat-card').forEach(function(a) {
+                if (a._navPatched) return;
+                a._navPatched = true;
+                a.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.parent.location.href = a.getAttribute('href');
+                }, true);
+            });
+        } catch(err) {}
+    }
+    [50, 250, 700, 1800].forEach(function(t) { setTimeout(patchNavLinks, t); });
+})();
+</script>
+""", height=0)
 
 # ---------------------------------------------------------------------------
 # Content routing
