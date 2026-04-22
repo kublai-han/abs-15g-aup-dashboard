@@ -665,6 +665,7 @@ st.markdown(
             white-space: nowrap;
             transition: color 0.15s;
             display: inline-block;
+            cursor: pointer;
         }
         .top-nav-item:hover { color: #e2e8f0; }
         .top-nav-item.nav-active {
@@ -690,6 +691,7 @@ st.markdown(
             white-space: nowrap;
             transition: color 0.15s;
             display: inline-block;
+            cursor: pointer;
         }
         .sub-nav-item:hover { color: #94a3b8; }
         .sub-nav-item.sub-nav-active {
@@ -748,6 +750,7 @@ st.markdown(
             padding: 1.4rem 1.2rem 1.2rem;
             text-decoration: none !important;
             display: block;
+            cursor: pointer;
             transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
         }
         .subcat-card:hover {
@@ -1024,20 +1027,19 @@ _sub_info = next((s for s in _section["subs"] if s["key"] == nav_sub), None)
 # ---------------------------------------------------------------------------
 # Header + top nav bar (pure HTML — original style)
 # ---------------------------------------------------------------------------
-_onclick = "onclick=\"event.preventDefault();window.location.href=this.getAttribute('href');\""
 _top_nav_items = "".join(
-    f'<a href="?nav={k}" {_onclick} class="top-nav-item{"  nav-active" if k == nav_main else ""}">'
-    f'{v["label"]}</a>'
+    f'<div onclick="window.location.href=\'?nav={k}\'" class="top-nav-item{"  nav-active" if k == nav_main else ""}">'
+    f'{v["label"]}</div>'
     for k, v in NAV_STRUCTURE.items()
 )
 
 _sub_nav_block = ""
 if nav_sub and _sub_info:
     _sub_items = "".join(
-        f'<a href="?nav={nav_main}&sub={s["key"]}" {_onclick} '
+        f'<div onclick="window.location.href=\'?nav={nav_main}&sub={s["key"]}\'" '
         f'class="sub-nav-item{" sub-nav-active" if s["key"] == nav_sub else ""}'
         f'{" sub-nav-disabled" if not s["has_data"] else ""}">'
-        f'{s["label"]}</a>'
+        f'{s["label"]}</div>'
         for s in _section["subs"]
     )
     _sub_nav_block = (
@@ -1080,11 +1082,11 @@ if not nav_sub:
         _desc = _SUBCAT_DESCS.get(_s["key"], "")
         if _s["has_data"]:
             _cards += (
-                f'<a href="?nav={nav_main}&sub={_s["key"]}" {_onclick} class="subcat-card">'
+                f'<div onclick="window.location.href=\'?nav={nav_main}&sub={_s["key"]}\'" class="subcat-card">'
                 f'<span class="subcat-card-icon">{_icon}</span>'
                 f'<div class="subcat-card-title">{_s["label"]}</div>'
                 f'<div class="subcat-card-meta">{_desc}</div>'
-                f'<span class="subcat-card-live">&#9679; Live Data</span></a>'
+                f'<span class="subcat-card-live">&#9679; Live Data</span></div>'
             )
         else:
             _cards += (
@@ -1141,7 +1143,7 @@ else:
     # ── Live data page — breadcrumb + inner tabs ──────────────────────────
     st.markdown(
         f'<div class="nav-breadcrumb page-wrapper">'
-        f'<a href="?nav={nav_main}" {_onclick}>{_section["label"]}</a>'
+        f'<span onclick="window.location.href=\'?nav={nav_main}\'" style="cursor:pointer;">{_section["label"]}</span>'
         f'<span class="sep">›</span>'
         f'<span class="bc-current">{_sub_info["label"]}</span>'
         f'</div>',
