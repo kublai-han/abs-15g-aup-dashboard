@@ -1025,93 +1025,109 @@ _section  = NAV_STRUCTURE[nav_main]
 _sub_info = next((s for s in _section["subs"] if s["key"] == nav_sub), None)
 
 # ---------------------------------------------------------------------------
-# Header + top nav bar — rendered in components.html so JS can navigate
-# the parent page via window.parent.location.href without Streamlit's
-# anchor-click interceptor opening a new tab.
+# Header + Navigation — st.button + st.query_params gives smooth same-page
+# navigation without page reloads or new tabs.
 # ---------------------------------------------------------------------------
-_top_nav_items = "".join(
-    f'<div data-href="?nav={k}" class="top-nav-item{"  nav-active" if k == nav_main else ""}">'
-    f'{v["label"]}</div>'
-    for k, v in NAV_STRUCTURE.items()
-)
 
-_sub_nav_html = ""
-_breadcrumb_html = ""
-_nav_height = 105
+def _go(nav_key=None, sub_key=None):
+    """Navigate to a section/subsection without opening a new tab."""
+    if nav_key:
+        st.query_params["nav"] = nav_key
+    if sub_key:
+        st.query_params["sub"] = sub_key
+    else:
+        st.query_params.pop("sub", None)
+    st.rerun()
+
+# Active column index (1-based) for CSS active-state injection
+_active_nav_idx = list(NAV_STRUCTURE.keys()).index(nav_main) + 1
+
+st.markdown(f"""<style>
+/* ── Top nav bar: style all buttons inside the sentinel row ── */
+[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) {{
+    background:#141428!important;
+    border-bottom:1px solid #2d2d5e!important;
+    gap:0!important;padding:0!important;align-items:stretch!important;
+}}
+[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) .stButton>button {{
+    background:none!important;border:none!important;border-radius:0!important;
+    border-bottom:2px solid transparent!important;color:#64748b!important;
+    padding:.9rem 1.6rem!important;font-size:.84rem!important;font-weight:500!important;
+    box-shadow:none!important;white-space:nowrap!important;width:100%!important;
+    transition:color .15s!important;
+}}
+[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) .stButton>button:hover {{
+    background:none!important;color:#e2e8f0!important;
+}}
+[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"]:nth-child({_active_nav_idx}) .stButton>button {{
+    color:#a78bfa!important;border-bottom-color:#7b5ea7!important;font-weight:600!important;
+}}
+/* ── Sub nav bar ── */
+[data-testid="stHorizontalBlock"]:has(.snav-sentinel) {{
+    background:#0f0f24!important;
+    border-bottom:1px solid #1e1e3f!important;
+    gap:0!important;padding:0!important;align-items:stretch!important;
+}}
+[data-testid="stHorizontalBlock"]:has(.snav-sentinel) .stButton>button {{
+    background:none!important;border:none!important;border-radius:0!important;
+    border-bottom:2px solid transparent!important;color:#64748b!important;
+    padding:.55rem 1.2rem!important;font-size:.78rem!important;font-weight:500!important;
+    box-shadow:none!important;white-space:nowrap!important;width:100%!important;
+    transition:color .15s!important;
+}}
+[data-testid="stHorizontalBlock"]:has(.snav-sentinel) .stButton>button:hover {{
+    background:none!important;color:#94a3b8!important;
+}}
+</style>""", unsafe_allow_html=True)
+
+# ── Header bar ──
+st.markdown(f"""
+<div class="finsight-header">
+  <div class="page-wrapper" style="display:flex;align-items:center;gap:1.25rem;width:100%;padding:0;">
+    <div class="finsight-logo"><span class="finsight-logo-badge">AUP</span>AUP Monitor</div>
+    <div class="header-spacer"></div>
+    <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+# ── Top nav buttons ──
+_nkeys = list(NAV_STRUCTURE.keys())
+_ncols = st.columns(len(_nkeys), gap="small")
+for _ni, _nk in enumerate(_nkeys):
+    with _ncols[_ni]:
+        if _ni == 0:
+            st.markdown('<span class="tnav-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
+        if st.button(NAV_STRUCTURE[_nk]["label"], key=f"tnav_{_nk}", use_container_width=True):
+            _go(_nk)
+
+# ── Sub-nav + breadcrumb (shown when inside a subcategory) ──
 if nav_sub and _sub_info:
-    _sub_items = "".join(
-        f'<div data-href="?nav={nav_main}&sub={s["key"]}" '
-        f'class="sub-nav-item{" sub-nav-active" if s["key"] == nav_sub else ""}'
-        f'{" sub-nav-disabled" if not s["has_data"] else ""}">'
-        f'{s["label"]}</div>'
-        for s in _section["subs"]
-    )
-    _sub_nav_html = f'<div class="sub-nav-bar">{_sub_items}</div>'
-    _breadcrumb_html = (
-        f'<div class="nav-breadcrumb">'
-        f'<span data-href="?nav={nav_main}" class="bc-link">{_section["label"]}</span>'
+    st.markdown(
+        f'<div class="nav-breadcrumb page-wrapper">'
+        f'<span class="bc-current" style="color:#7b5ea7;cursor:pointer;" '
+        f'onclick="void(0)">{_section["label"]}</span>'
         f'<span class="sep"> › </span>'
         f'<span class="bc-current">{_sub_info["label"]}</span>'
-        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
     )
-    _nav_height = 175
-
-_nav_css = """<style>
-*,*::before,*::after{box-sizing:border-box}
-html,body{margin:0;padding:0;background:transparent;overflow:hidden;
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-.finsight-header{background:#1e1e3f;border-bottom:1px solid #2d2d5e;
-  padding:.65rem 2rem;display:flex;align-items:center;gap:1.25rem}
-.finsight-logo{font-size:1.15rem;font-weight:700;color:#fff;
-  letter-spacing:-.02em;white-space:nowrap}
-.finsight-logo-badge{background:#7b5ea7;color:#fff;font-size:.68rem;
-  font-weight:700;padding:2px 7px;border-radius:3px;margin-right:6px;
-  letter-spacing:.04em;vertical-align:middle}
-.header-spacer{flex:1}
-.finsight-updated-badge{background:#141428;border:1px solid #2d2d5e;
-  color:#94a3b8;font-size:.75rem;padding:4px 10px;border-radius:4px;white-space:nowrap}
-.top-nav-bar{background:#141428;border-bottom:1px solid #2d2d5e;padding:0;display:flex;overflow-x:auto}
-.top-nav-item{padding:.9rem 1.6rem;font-size:.84rem;font-weight:500;color:#64748b;
-  border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s;
-  display:inline-block;cursor:pointer;user-select:none}
-.top-nav-item:hover{color:#e2e8f0}
-.top-nav-item.nav-active{color:#a78bfa;border-bottom-color:#7b5ea7;font-weight:600}
-.sub-nav-bar{background:#0f0f24;border-bottom:1px solid #1e1e3f;padding:0;display:flex}
-.sub-nav-item{padding:.55rem 1.2rem;font-size:.78rem;font-weight:500;color:#64748b;
-  border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s;
-  display:inline-block;cursor:pointer;user-select:none}
-.sub-nav-item:hover{color:#94a3b8}
-.sub-nav-item.sub-nav-active{color:#a78bfa;border-bottom-color:#7b5ea7;font-weight:600}
-.sub-nav-item.sub-nav-disabled{opacity:.38;pointer-events:none;cursor:default}
-.nav-breadcrumb{padding:.45rem 1rem;font-size:.78rem;color:#64748b;
-  background:#0d0d1a;border-bottom:1px solid #1e1e3f}
-.bc-link{color:#7b5ea7;cursor:pointer}
-.bc-link:hover{text-decoration:underline}
-.sep{color:#2d2d5e;margin:0 .4rem}
-.bc-current{color:#94a3b8}
-</style>"""
-
-components.html(
-    f"""<!DOCTYPE html><html><head>{_nav_css}</head><body>
-<div class="finsight-header">
-  <div class="finsight-logo"><span class="finsight-logo-badge">AUP</span>AUP Monitor</div>
-  <div class="header-spacer"></div>
-  <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
-</div>
-<div class="top-nav-bar">{_top_nav_items}</div>
-{_sub_nav_html}
-{_breadcrumb_html}
-<script>
-document.querySelectorAll('[data-href]').forEach(function(el){{
-  el.addEventListener('click',function(){{
-    window.parent.location.search = el.getAttribute('data-href');
-  }});
-}});
-</script>
-</body></html>""",
-    height=_nav_height,
-    scrolling=False,
-)
+    _skeys = [s["key"] for s in _section["subs"]]
+    _scols = st.columns(len(_skeys), gap="small")
+    _active_sub_idx = (_skeys.index(nav_sub) + 1) if nav_sub in _skeys else 0
+    st.markdown(f"""<style>
+[data-testid="stHorizontalBlock"]:has(.snav-sentinel) [data-testid="column"]:nth-child({_active_sub_idx}) .stButton>button {{
+    color:#a78bfa!important;border-bottom-color:#7b5ea7!important;font-weight:600!important;
+}}
+</style>""", unsafe_allow_html=True)
+    for _si, _s in enumerate(_section["subs"]):
+        with _scols[_si]:
+            if _si == 0:
+                st.markdown('<span class="snav-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
+            if _s.get("has_data"):
+                if st.button(_s["label"], key=f"snav_{_s['key']}", use_container_width=True):
+                    _go(nav_main, _s["key"])
+            else:
+                st.button(_s["label"], key=f"snav_{_s['key']}", use_container_width=True, disabled=True)
 
 # ---------------------------------------------------------------------------
 # Content routing
@@ -1120,76 +1136,34 @@ document.querySelectorAll('[data-href]').forEach(function(el){{
 if not nav_sub:
     # ── Subcategory landing page ──────────────────────────────────────────
     _c = _section["color"]
-    _cards = ""
-    for _s in _section["subs"]:
+    st.markdown(f"""
+    <div class="finsight-content"><div class="page-wrapper">
+      <div class="section-hero">
+        <div class="section-hero-badge" style="background:{_c}22;color:{_c};border:1px solid {_c}55;">{_section["short"]}</div>
+        <div class="section-hero-title">{_section["label"]}</div>
+        <div class="section-hero-sub">SEC ABS-15G AUP Procedure Monitor — select an asset class below</div>
+      </div>
+    </div></div>""", unsafe_allow_html=True)
+
+    _card_cols = st.columns(5, gap="small")
+    for _ci, _s in enumerate(_section["subs"]):
         _icon = _SUBCAT_ICONS.get(_s["key"], "📋")
         _desc = _SUBCAT_DESCS.get(_s["key"], "")
-        if _s["has_data"]:
-            _cards += (
-                f'<div data-href="?nav={nav_main}&sub={_s["key"]}" class="subcat-card">'
-                f'<span class="subcat-card-icon">{_icon}</span>'
-                f'<div class="subcat-card-title">{_s["label"]}</div>'
-                f'<div class="subcat-card-meta">{_desc}</div>'
-                f'<span class="subcat-card-live">&#9679; Live Data</span></div>'
-            )
-        else:
-            _cards += (
-                f'<div class="subcat-card no-data">'
-                f'<span class="subcat-card-icon">{_icon}</span>'
-                f'<div class="subcat-card-title">{_s["label"]}</div>'
-                f'<div class="subcat-card-meta">{_desc}</div>'
-                f'<span class="subcat-card-soon">Coming Soon</span></div>'
-            )
-
-    _cards_css = """<style>
-*,*::before,*::after{box-sizing:border-box}
-html,body{margin:0;padding:0;background:#0d0d1a;overflow:hidden;
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-.page-wrapper{padding:1.5rem 2rem 2rem}
-.section-hero{padding:2rem 0 1.5rem;border-bottom:1px solid #1e1e3f;margin-bottom:1.5rem}
-.section-hero-badge{display:inline-block;font-size:.68rem;font-weight:700;
-  letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;border-radius:4px;margin-bottom:.75rem}
-.section-hero-title{font-size:1.85rem;font-weight:700;color:#f1f5f9;
-  letter-spacing:-.02em;line-height:1.15;margin-bottom:.4rem}
-.section-hero-sub{font-size:.84rem;color:#64748b}
-.subcat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin:1rem 0}
-@media(max-width:1050px){.subcat-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:640px){.subcat-grid{grid-template-columns:repeat(2,1fr)}}
-.subcat-card{background:#1e1e3f;border:1px solid #2d2d5e;border-radius:10px;
-  padding:1.4rem 1.2rem 1.2rem;display:block;cursor:pointer;
-  transition:border-color .15s,transform .12s,box-shadow .15s;user-select:none}
-.subcat-card:hover{border-color:#7b5ea7;transform:translateY(-2px);box-shadow:0 6px 24px #7b5ea722}
-.subcat-card.no-data{opacity:.42;cursor:default;pointer-events:none}
-.subcat-card-icon{font-size:1.6rem;display:block;margin-bottom:.75rem}
-.subcat-card-title{font-size:.95rem;font-weight:700;color:#f1f5f9;margin-bottom:.35rem;line-height:1.25}
-.subcat-card-meta{font-size:.73rem;color:#64748b;line-height:1.5;margin-bottom:.55rem}
-.subcat-card-live{display:inline-block;font-size:.64rem;font-weight:700;color:#00c896;
-  background:#00c89614;border:1px solid #00c89638;border-radius:3px;padding:2px 7px}
-.subcat-card-soon{display:inline-block;font-size:.64rem;font-weight:700;color:#64748b;
-  background:#64748b14;border:1px solid #64748b38;border-radius:3px;padding:2px 7px}
-</style>"""
-
-    components.html(
-        f"""<!DOCTYPE html><html><head>{_cards_css}</head><body>
-<div class="page-wrapper">
-  <div class="section-hero">
-    <div class="section-hero-badge" style="background:{_c}22;color:{_c};border:1px solid {_c}55;">{_section["short"]}</div>
-    <div class="section-hero-title">{_section["label"]}</div>
-    <div class="section-hero-sub">SEC ABS-15G AUP Procedure Monitor — select an asset class below</div>
-  </div>
-  <div class="subcat-grid">{_cards}</div>
-</div>
-<script>
-document.querySelectorAll('[data-href]').forEach(function(el){{
-  el.addEventListener('click',function(){{
-    window.parent.location.search = el.getAttribute('data-href');
-  }});
-}});
-</script>
-</body></html>""",
-        height=400,
-        scrolling=False,
-    )
+        with _card_cols[_ci % 5]:
+            if _s.get("has_data"):
+                if st.button(
+                    f"{_icon}  **{_s['label']}**\n\n{_desc}\n\n🟢 Live Data",
+                    key=f"card_{_s['key']}",
+                    use_container_width=True,
+                ):
+                    _go(nav_main, _s["key"])
+            else:
+                st.button(
+                    f"{_icon}  {_s['label']}\n\n{_desc}\n\nComing Soon",
+                    key=f"card_{_s['key']}",
+                    use_container_width=True,
+                    disabled=True,
+                )
     st.stop()
 
 elif _sub_info is None:
