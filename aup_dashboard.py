@@ -1024,8 +1024,9 @@ _sub_info = next((s for s in _section["subs"] if s["key"] == nav_sub), None)
 # ---------------------------------------------------------------------------
 # Header + top nav bar (pure HTML — original style)
 # ---------------------------------------------------------------------------
+_onclick = "onclick=\"event.preventDefault();window.location.href=this.getAttribute('href');\""
 _top_nav_items = "".join(
-    f'<a href="?nav={k}" class="top-nav-item{"  nav-active" if k == nav_main else ""}">'
+    f'<a href="?nav={k}" {_onclick} class="top-nav-item{"  nav-active" if k == nav_main else ""}">'
     f'{v["label"]}</a>'
     for k, v in NAV_STRUCTURE.items()
 )
@@ -1033,7 +1034,7 @@ _top_nav_items = "".join(
 _sub_nav_block = ""
 if nav_sub and _sub_info:
     _sub_items = "".join(
-        f'<a href="?nav={nav_main}&sub={s["key"]}" '
+        f'<a href="?nav={nav_main}&sub={s["key"]}" {_onclick} '
         f'class="sub-nav-item{" sub-nav-active" if s["key"] == nav_sub else ""}'
         f'{" sub-nav-disabled" if not s["has_data"] else ""}">'
         f'{s["label"]}</a>'
@@ -1065,29 +1066,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-# Patch nav links so they navigate in the same tab instead of opening new pages.
-# components.html runs in an iframe; window.parent.location.href changes the main page URL.
-components.html("""
-<script>
-(function() {
-    function patchNavLinks() {
-        try {
-            var p = window.parent.document;
-            p.querySelectorAll('a.top-nav-item, a.sub-nav-item, a.subcat-card').forEach(function(a) {
-                if (a._navPatched) return;
-                a._navPatched = true;
-                a.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.parent.location.href = a.getAttribute('href');
-                }, true);
-            });
-        } catch(err) {}
-    }
-    [50, 250, 700, 1800].forEach(function(t) { setTimeout(patchNavLinks, t); });
-})();
-</script>
-""", height=0)
 
 # ---------------------------------------------------------------------------
 # Content routing
@@ -1102,7 +1080,7 @@ if not nav_sub:
         _desc = _SUBCAT_DESCS.get(_s["key"], "")
         if _s["has_data"]:
             _cards += (
-                f'<a href="?nav={nav_main}&sub={_s["key"]}" class="subcat-card">'
+                f'<a href="?nav={nav_main}&sub={_s["key"]}" {_onclick} class="subcat-card">'
                 f'<span class="subcat-card-icon">{_icon}</span>'
                 f'<div class="subcat-card-title">{_s["label"]}</div>'
                 f'<div class="subcat-card-meta">{_desc}</div>'
@@ -1163,7 +1141,7 @@ else:
     # ── Live data page — breadcrumb + inner tabs ──────────────────────────
     st.markdown(
         f'<div class="nav-breadcrumb page-wrapper">'
-        f'<a href="?nav={nav_main}">{_section["label"]}</a>'
+        f'<a href="?nav={nav_main}" {_onclick}>{_section["label"]}</a>'
         f'<span class="sep">›</span>'
         f'<span class="bc-current">{_sub_info["label"]}</span>'
         f'</div>',
