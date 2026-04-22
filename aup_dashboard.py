@@ -1104,7 +1104,7 @@ components.html(
 <script>
 document.querySelectorAll('[data-href]').forEach(function(el){{
   el.addEventListener('click',function(){{
-    window.parent.location.href = el.getAttribute('data-href');
+    window.parent.location.search = el.getAttribute('data-href');
   }});
 }});
 </script>
@@ -1182,7 +1182,7 @@ html,body{margin:0;padding:0;background:#0d0d1a;overflow:hidden;
 <script>
 document.querySelectorAll('[data-href]').forEach(function(el){{
   el.addEventListener('click',function(){{
-    window.parent.location.href = el.getAttribute('data-href');
+    window.parent.location.search = el.getAttribute('data-href');
   }});
 }});
 </script>
