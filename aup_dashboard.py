@@ -1025,48 +1025,92 @@ _section  = NAV_STRUCTURE[nav_main]
 _sub_info = next((s for s in _section["subs"] if s["key"] == nav_sub), None)
 
 # ---------------------------------------------------------------------------
-# Header + top nav bar (pure HTML — original style)
+# Header + top nav bar — rendered in components.html so JS can navigate
+# the parent page via window.parent.location.href without Streamlit's
+# anchor-click interceptor opening a new tab.
 # ---------------------------------------------------------------------------
 _top_nav_items = "".join(
-    f'<div onclick="window.location.href=\'?nav={k}\'" class="top-nav-item{"  nav-active" if k == nav_main else ""}">'
+    f'<div data-href="?nav={k}" class="top-nav-item{"  nav-active" if k == nav_main else ""}">'
     f'{v["label"]}</div>'
     for k, v in NAV_STRUCTURE.items()
 )
 
-_sub_nav_block = ""
+_sub_nav_html = ""
+_breadcrumb_html = ""
+_nav_height = 105
 if nav_sub and _sub_info:
     _sub_items = "".join(
-        f'<div onclick="window.location.href=\'?nav={nav_main}&sub={s["key"]}\'" '
+        f'<div data-href="?nav={nav_main}&sub={s["key"]}" '
         f'class="sub-nav-item{" sub-nav-active" if s["key"] == nav_sub else ""}'
         f'{" sub-nav-disabled" if not s["has_data"] else ""}">'
         f'{s["label"]}</div>'
         for s in _section["subs"]
     )
-    _sub_nav_block = (
-        f'<div class="sub-nav-bar">'
-        f'<div class="page-wrapper" style="display:flex;width:100%;padding-top:0;padding-bottom:0;">'
-        f'{_sub_items}</div></div>'
+    _sub_nav_html = f'<div class="sub-nav-bar">{_sub_items}</div>'
+    _breadcrumb_html = (
+        f'<div class="nav-breadcrumb">'
+        f'<span data-href="?nav={nav_main}" class="bc-link">{_section["label"]}</span>'
+        f'<span class="sep"> › </span>'
+        f'<span class="bc-current">{_sub_info["label"]}</span>'
+        f'</div>'
     )
+    _nav_height = 175
 
-st.markdown(
-    f"""
-    <div class="finsight-header">
-        <div class="page-wrapper" style="display:flex;align-items:center;gap:1.25rem;width:100%;padding-top:0;padding-bottom:0;">
-            <div class="finsight-logo">
-                <span class="finsight-logo-badge">AUP</span>AUP Monitor
-            </div>
-            <div class="header-spacer"></div>
-            <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
-        </div>
-    </div>
-    <div class="top-nav-bar">
-        <div class="page-wrapper" style="display:flex;width:100%;padding-top:0;padding-bottom:0;">
-            {_top_nav_items}
-        </div>
-    </div>
-    {_sub_nav_block}
-    """,
-    unsafe_allow_html=True,
+_nav_css = """<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;background:transparent;overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+.finsight-header{background:#1e1e3f;border-bottom:1px solid #2d2d5e;
+  padding:.65rem 2rem;display:flex;align-items:center;gap:1.25rem}
+.finsight-logo{font-size:1.15rem;font-weight:700;color:#fff;
+  letter-spacing:-.02em;white-space:nowrap}
+.finsight-logo-badge{background:#7b5ea7;color:#fff;font-size:.68rem;
+  font-weight:700;padding:2px 7px;border-radius:3px;margin-right:6px;
+  letter-spacing:.04em;vertical-align:middle}
+.header-spacer{flex:1}
+.finsight-updated-badge{background:#141428;border:1px solid #2d2d5e;
+  color:#94a3b8;font-size:.75rem;padding:4px 10px;border-radius:4px;white-space:nowrap}
+.top-nav-bar{background:#141428;border-bottom:1px solid #2d2d5e;padding:0;display:flex;overflow-x:auto}
+.top-nav-item{padding:.9rem 1.6rem;font-size:.84rem;font-weight:500;color:#64748b;
+  border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s;
+  display:inline-block;cursor:pointer;user-select:none}
+.top-nav-item:hover{color:#e2e8f0}
+.top-nav-item.nav-active{color:#a78bfa;border-bottom-color:#7b5ea7;font-weight:600}
+.sub-nav-bar{background:#0f0f24;border-bottom:1px solid #1e1e3f;padding:0;display:flex}
+.sub-nav-item{padding:.55rem 1.2rem;font-size:.78rem;font-weight:500;color:#64748b;
+  border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s;
+  display:inline-block;cursor:pointer;user-select:none}
+.sub-nav-item:hover{color:#94a3b8}
+.sub-nav-item.sub-nav-active{color:#a78bfa;border-bottom-color:#7b5ea7;font-weight:600}
+.sub-nav-item.sub-nav-disabled{opacity:.38;pointer-events:none;cursor:default}
+.nav-breadcrumb{padding:.45rem 1rem;font-size:.78rem;color:#64748b;
+  background:#0d0d1a;border-bottom:1px solid #1e1e3f}
+.bc-link{color:#7b5ea7;cursor:pointer}
+.bc-link:hover{text-decoration:underline}
+.sep{color:#2d2d5e;margin:0 .4rem}
+.bc-current{color:#94a3b8}
+</style>"""
+
+components.html(
+    f"""<!DOCTYPE html><html><head>{_nav_css}</head><body>
+<div class="finsight-header">
+  <div class="finsight-logo"><span class="finsight-logo-badge">AUP</span>AUP Monitor</div>
+  <div class="header-spacer"></div>
+  <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
+</div>
+<div class="top-nav-bar">{_top_nav_items}</div>
+{_sub_nav_html}
+{_breadcrumb_html}
+<script>
+document.querySelectorAll('[data-href]').forEach(function(el){{
+  el.addEventListener('click',function(){{
+    window.parent.location.href = el.getAttribute('data-href');
+  }});
+}});
+</script>
+</body></html>""",
+    height=_nav_height,
+    scrolling=False,
 )
 
 # ---------------------------------------------------------------------------
@@ -1082,7 +1126,7 @@ if not nav_sub:
         _desc = _SUBCAT_DESCS.get(_s["key"], "")
         if _s["has_data"]:
             _cards += (
-                f'<div onclick="window.location.href=\'?nav={nav_main}&sub={_s["key"]}\'" class="subcat-card">'
+                f'<div data-href="?nav={nav_main}&sub={_s["key"]}" class="subcat-card">'
                 f'<span class="subcat-card-icon">{_icon}</span>'
                 f'<div class="subcat-card-title">{_s["label"]}</div>'
                 f'<div class="subcat-card-meta">{_desc}</div>'
@@ -1097,18 +1141,54 @@ if not nav_sub:
                 f'<span class="subcat-card-soon">Coming Soon</span></div>'
             )
 
-    st.markdown(
-        f"""
-        <div class="finsight-content"><div class="page-wrapper">
-          <div class="section-hero">
-            <div class="section-hero-badge" style="background:{_c}22;color:{_c};border:1px solid {_c}55;">{_section["short"]}</div>
-            <div class="section-hero-title">{_section["label"]}</div>
-            <div class="section-hero-sub">SEC ABS-15G AUP Procedure Monitor — select an asset class below</div>
-          </div>
-          <div class="subcat-grid">{_cards}</div>
-        </div></div>
-        """,
-        unsafe_allow_html=True,
+    _cards_css = """<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#0d0d1a;overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+.page-wrapper{padding:1.5rem 2rem 2rem}
+.section-hero{padding:2rem 0 1.5rem;border-bottom:1px solid #1e1e3f;margin-bottom:1.5rem}
+.section-hero-badge{display:inline-block;font-size:.68rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;border-radius:4px;margin-bottom:.75rem}
+.section-hero-title{font-size:1.85rem;font-weight:700;color:#f1f5f9;
+  letter-spacing:-.02em;line-height:1.15;margin-bottom:.4rem}
+.section-hero-sub{font-size:.84rem;color:#64748b}
+.subcat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin:1rem 0}
+@media(max-width:1050px){.subcat-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:640px){.subcat-grid{grid-template-columns:repeat(2,1fr)}}
+.subcat-card{background:#1e1e3f;border:1px solid #2d2d5e;border-radius:10px;
+  padding:1.4rem 1.2rem 1.2rem;display:block;cursor:pointer;
+  transition:border-color .15s,transform .12s,box-shadow .15s;user-select:none}
+.subcat-card:hover{border-color:#7b5ea7;transform:translateY(-2px);box-shadow:0 6px 24px #7b5ea722}
+.subcat-card.no-data{opacity:.42;cursor:default;pointer-events:none}
+.subcat-card-icon{font-size:1.6rem;display:block;margin-bottom:.75rem}
+.subcat-card-title{font-size:.95rem;font-weight:700;color:#f1f5f9;margin-bottom:.35rem;line-height:1.25}
+.subcat-card-meta{font-size:.73rem;color:#64748b;line-height:1.5;margin-bottom:.55rem}
+.subcat-card-live{display:inline-block;font-size:.64rem;font-weight:700;color:#00c896;
+  background:#00c89614;border:1px solid #00c89638;border-radius:3px;padding:2px 7px}
+.subcat-card-soon{display:inline-block;font-size:.64rem;font-weight:700;color:#64748b;
+  background:#64748b14;border:1px solid #64748b38;border-radius:3px;padding:2px 7px}
+</style>"""
+
+    components.html(
+        f"""<!DOCTYPE html><html><head>{_cards_css}</head><body>
+<div class="page-wrapper">
+  <div class="section-hero">
+    <div class="section-hero-badge" style="background:{_c}22;color:{_c};border:1px solid {_c}55;">{_section["short"]}</div>
+    <div class="section-hero-title">{_section["label"]}</div>
+    <div class="section-hero-sub">SEC ABS-15G AUP Procedure Monitor — select an asset class below</div>
+  </div>
+  <div class="subcat-grid">{_cards}</div>
+</div>
+<script>
+document.querySelectorAll('[data-href]').forEach(function(el){{
+  el.addEventListener('click',function(){{
+    window.parent.location.href = el.getAttribute('data-href');
+  }});
+}});
+</script>
+</body></html>""",
+        height=400,
+        scrolling=False,
     )
     st.stop()
 
@@ -1140,16 +1220,7 @@ elif not _sub_info.get("has_data"):
     st.stop()
 
 else:
-    # ── Live data page — breadcrumb + inner tabs ──────────────────────────
-    st.markdown(
-        f'<div class="nav-breadcrumb page-wrapper">'
-        f'<span onclick="window.location.href=\'?nav={nav_main}\'" style="cursor:pointer;">{_section["label"]}</span>'
-        f'<span class="sep">›</span>'
-        f'<span class="bc-current">{_sub_info["label"]}</span>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
+    # ── Live data page — tabs (breadcrumb is already in the nav component) ──
     # ---------------------------------------------------------------------------
     # Main tab layout — AUP Results is first (default selected tab)
     # Tab variables reassigned so no content blocks need changing:
