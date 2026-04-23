@@ -1145,21 +1145,80 @@ if not nav_sub:
       </div>
     </div></div>""", unsafe_allow_html=True)
 
+    # CSS: make the card-row buttons look like the original .subcat-card design
+    st.markdown("""<style>
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) {
+    gap:.8rem!important; padding:.8rem 0 2rem!important;
+    align-items:stretch!important; flex-wrap:wrap!important;
+}
+[data-testid="stHorizontalBlock"]:has(.card-sentinel)
+    [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stHorizontalBlock"]:has(.card-sentinel)
+    [data-testid="stVerticalBlock"] { height:100%; }
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton { height:100%; }
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton>button {
+    background:#1e1e3f!important; border:1px solid #2d2d5e!important;
+    border-radius:10px!important; padding:1.4rem 1.2rem 1.2rem!important;
+    text-align:left!important; color:#f1f5f9!important;
+    width:100%!important; height:100%!important; min-height:148px!important;
+    box-shadow:none!important;
+    transition:border-color .15s,transform .12s,box-shadow .15s!important;
+    display:flex!important; flex-direction:column!important;
+    align-items:flex-start!important;
+}
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton>button:hover {
+    background:#1e1e3f!important; border-color:#7b5ea7!important;
+    transform:translateY(-2px)!important; box-shadow:0 6px 24px #7b5ea722!important;
+    color:#f1f5f9!important;
+}
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton>button[disabled] {
+    background:#1e1e3f!important; border-color:#2d2d5e!important;
+    color:#94a3b8!important; opacity:.42!important;
+    cursor:default!important; transform:none!important; box-shadow:none!important;
+}
+/* Per-paragraph styling inside each card button */
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton>button p {
+    margin:0 0 .3rem 0!important; line-height:1.4!important;
+}
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton>button p:first-child {
+    font-size:1.55rem!important; margin-bottom:.7rem!important;
+}
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton>button p:nth-child(2) strong {
+    font-size:.94rem!important; font-weight:700!important; color:#f1f5f9!important;
+}
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton>button p:nth-child(3) {
+    font-size:.73rem!important; color:#64748b!important;
+    margin-bottom:.55rem!important; flex-grow:1!important;
+}
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton>button p:last-child {
+    font-size:.64rem!important; font-weight:700!important; color:#00c896!important;
+    background:#00c89614!important; border:1px solid #00c89638!important;
+    border-radius:3px!important; padding:2px 7px!important;
+    display:inline-block!important; margin:0!important;
+}
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton>button[disabled] p:last-child {
+    color:#64748b!important; background:#64748b14!important;
+    border-color:#64748b38!important;
+}
+</style>""", unsafe_allow_html=True)
+
     _card_cols = st.columns(5, gap="small")
     for _ci, _s in enumerate(_section["subs"]):
         _icon = _SUBCAT_ICONS.get(_s["key"], "📋")
         _desc = _SUBCAT_DESCS.get(_s["key"], "")
         with _card_cols[_ci % 5]:
+            if _ci == 0:
+                st.markdown('<span class="card-sentinel" style="display:none"></span>', unsafe_allow_html=True)
             if _s.get("has_data"):
                 if st.button(
-                    f"{_icon}  **{_s['label']}**\n\n{_desc}\n\n🟢 Live Data",
+                    f"{_icon}\n\n**{_s['label']}**\n\n{_desc}\n\n● Live Data",
                     key=f"card_{_s['key']}",
                     use_container_width=True,
                 ):
                     _go(nav_main, _s["key"])
             else:
                 st.button(
-                    f"{_icon}  {_s['label']}\n\n{_desc}\n\nComing Soon",
+                    f"{_icon}\n\n{_s['label']}\n\n{_desc}\n\nComing Soon",
                     key=f"card_{_s['key']}",
                     use_container_width=True,
                     disabled=True,
