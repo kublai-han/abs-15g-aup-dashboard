@@ -653,6 +653,7 @@ st.markdown(
             border-bottom: 1px solid #2d2d5e;
             padding: 0;
             display: flex;
+            align-items: center;
             overflow-x: auto;
         }
         .top-nav-item {
@@ -664,7 +665,8 @@ st.markdown(
             text-decoration: none !important;
             white-space: nowrap;
             transition: color 0.15s;
-            display: inline-block;
+            display: flex;
+            align-items: center;
             cursor: pointer;
         }
         .top-nav-item:hover { color: #e2e8f0; }
@@ -740,6 +742,7 @@ st.markdown(
             grid-template-columns: repeat(5, 1fr);
             gap: 1rem;
             margin: 1rem 0 2.5rem;
+            align-items: start;
         }
         @media (max-width: 1050px) { .subcat-grid { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 640px)  { .subcat-grid { grid-template-columns: repeat(2, 1fr); } }
