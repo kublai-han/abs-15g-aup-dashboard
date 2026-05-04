@@ -1214,7 +1214,7 @@ if not nav_sub:
         _icon = _SUBCAT_ICONS.get(_s["key"], "📋")
         _desc = _SUBCAT_DESCS.get(_s["key"], "")
         with _card_cols[_ci % 5]:
-                   if _s.get("has_data"):
+            if _s.get("has_data"):
                 if st.button(
                     f"{_icon}\n\n**{_s['label']}**\n\n{_desc}\n\n● Live Data",
                     key=f"card_{_s['key']}",
