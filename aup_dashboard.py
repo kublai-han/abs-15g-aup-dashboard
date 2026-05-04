@@ -751,6 +751,7 @@ st.markdown(
             border: 1px solid #2d2d5e;
             border-radius: 10px;
             padding: 1.4rem 1.2rem 1.2rem;
+            min-height: 160px;
             text-decoration: none !important;
             display: block;
             cursor: pointer;
@@ -1050,7 +1051,7 @@ st.markdown(f"""<style>
 [data-testid="stHorizontalBlock"]:has(.tnav-sentinel) {{
     background:#141428!important;
     border-bottom:1px solid #2d2d5e!important;
-    gap:0!important;padding:0!important;align-items:stretch!important;
+    gap:0!important;padding:0!important;align-items:stretch!important;height:52px!important;
 }}
 [data-testid="stHorizontalBlock"]:has(.tnav-sentinel) .stButton>button {{
     background:none!important;border:none!important;border-radius:0!important;
@@ -1064,6 +1065,9 @@ st.markdown(f"""<style>
 }}
 [data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"]:nth-child({_active_nav_idx}) .stButton>button {{
     color:#a78bfa!important;border-bottom-color:#7b5ea7!important;font-weight:600!important;
+}}
+[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"] {{
+    display:flex!important;flex-direction:column!important;justify-content:center!important;padding:0!important;
 }}
 /* ── Sub nav bar ── */
 [data-testid="stHorizontalBlock"]:has(.snav-sentinel) {{
