@@ -742,7 +742,6 @@ st.markdown(
             grid-template-columns: repeat(5, 1fr);
             gap: 1rem;
             margin: 1rem 0 2.5rem;
-            align-items: start;
         }
         @media (max-width: 1050px) { .subcat-grid { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 640px)  { .subcat-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -751,7 +750,6 @@ st.markdown(
             border: 1px solid #2d2d5e;
             border-radius: 10px;
             padding: 1.4rem 1.2rem 1.2rem;
-            min-height: 160px;
             text-decoration: none !important;
             display: block;
             cursor: pointer;
@@ -1051,7 +1049,7 @@ st.markdown(f"""<style>
 [data-testid="stHorizontalBlock"]:has(.tnav-sentinel) {{
     background:#141428!important;
     border-bottom:1px solid #2d2d5e!important;
-    gap:0!important;padding:0!important;align-items:stretch!important;height:52px!important;
+    gap:0!important;padding:0!important;align-items:stretch!important;
 }}
 [data-testid="stHorizontalBlock"]:has(.tnav-sentinel) .stButton>button {{
     background:none!important;border:none!important;border-radius:0!important;
@@ -1065,9 +1063,6 @@ st.markdown(f"""<style>
 }}
 [data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"]:nth-child({_active_nav_idx}) .stButton>button {{
     color:#a78bfa!important;border-bottom-color:#7b5ea7!important;font-weight:600!important;
-}}
-[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"] {{
-    display:flex!important;flex-direction:column!important;justify-content:center!important;padding:0!important;
 }}
 /* ── Sub nav bar ── */
 [data-testid="stHorizontalBlock"]:has(.snav-sentinel) {{
