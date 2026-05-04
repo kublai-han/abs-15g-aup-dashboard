@@ -1099,11 +1099,10 @@ st.markdown(f"""
 
 # ── Top nav buttons ──
 _nkeys = list(NAV_STRUCTURE.keys())
+st.markdown('<span class="tnav-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
 _ncols = st.columns(len(_nkeys), gap="small")
 for _ni, _nk in enumerate(_nkeys):
     with _ncols[_ni]:
-        if _ni == 0:
-            st.markdown('<span class="tnav-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
         if st.button(NAV_STRUCTURE[_nk]["label"], key=f"tnav_{_nk}", use_container_width=True):
             _go(_nk)
 
@@ -1209,14 +1208,13 @@ if not nav_sub:
 }
 </style>""", unsafe_allow_html=True)
 
+    st.markdown('<span class="card-sentinel" style="display:none"></span>', unsafe_allow_html=True)
     _card_cols = st.columns(5, gap="small")
     for _ci, _s in enumerate(_section["subs"]):
         _icon = _SUBCAT_ICONS.get(_s["key"], "📋")
         _desc = _SUBCAT_DESCS.get(_s["key"], "")
         with _card_cols[_ci % 5]:
-            if _ci == 0:
-                st.markdown('<span class="card-sentinel" style="display:none"></span>', unsafe_allow_html=True)
-            if _s.get("has_data"):
+                   if _s.get("has_data"):
                 if st.button(
                     f"{_icon}\n\n**{_s['label']}**\n\n{_desc}\n\n● Live Data",
                     key=f"card_{_s['key']}",
