@@ -1152,6 +1152,9 @@ if not nav_sub:
     gap:.8rem!important; padding:.8rem 0 2rem!important;
     align-items:stretch!important; flex-wrap:wrap!important;
 }
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) [data-testid="column"]:first-child > div > [data-testid="stVerticalBlock"] > div:first-child {{
+    display:none!important;
+}}
 [data-testid="stHorizontalBlock"]:has(.card-sentinel)
     [data-testid="stVerticalBlockBorderWrapper"],
 [data-testid="stHorizontalBlock"]:has(.card-sentinel)
@@ -1161,7 +1164,7 @@ if not nav_sub:
     background:#1e1e3f!important; border:1px solid #2d2d5e!important;
     border-radius:10px!important; padding:1.4rem 1.2rem 1.2rem!important;
     text-align:left!important; color:#f1f5f9!important;
-    width:100%!important; height:100%!important; min-height:148px!important;
+    width:100%!important; height:200px!important; min-height:200px!important;
     box-shadow:none!important;
     transition:border-color .15s,transform .12s,box-shadow .15s!important;
     display:flex!important; flex-direction:column!important;
@@ -1190,6 +1193,7 @@ if not nav_sub:
 [data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton>button p:nth-child(3) {
     font-size:.73rem!important; color:#64748b!important;
     margin-bottom:.55rem!important; flex-grow:1!important;
+    overflow:hidden!important; display:-webkit-box!important; -webkit-line-clamp:2!important; -webkit-box-orient:vertical!important;
 }
 [data-testid="stHorizontalBlock"]:has(.card-sentinel) .stButton>button p:last-child {
     font-size:.64rem!important; font-weight:700!important; color:#00c896!important;
@@ -1203,12 +1207,13 @@ if not nav_sub:
 }
 </style>""", unsafe_allow_html=True)
 
-    st.markdown('<span class="card-sentinel" style="display:none"></span>', unsafe_allow_html=True)
     _card_cols = st.columns(5, gap="small")
     for _ci, _s in enumerate(_section["subs"]):
         _icon = _SUBCAT_ICONS.get(_s["key"], "📋")
         _desc = _SUBCAT_DESCS.get(_s["key"], "")
         with _card_cols[_ci % 5]:
+            if _ci == 0:
+                st.markdown('<span class="card-sentinel" style="position:absolute;display:none"></span>', unsafe_allow_html=True)
             if _s.get("has_data"):
                 if st.button(
                     f"{_icon}\n\n**{_s['label']}**\n\n{_desc}\n\n● Live Data",
