@@ -1065,21 +1065,31 @@ st.markdown(f"""<style>
     color:#a78bfa!important;border-bottom-color:#7b5ea7!important;font-weight:600!important;
 }}
 
-[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"]:first-child [data-testid="stMarkdown"] {{
+[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"]:first-child [data-testid="stMarkdown"],
+[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"]:first-child [data-testid="stMarkdownContainer"],
+[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"]:first-child .stMarkdown {{
     display:none!important;
     height:0!important;
     min-height:0!important;
+    max-height:0!important;
     overflow:hidden!important;
     padding:0!important;
     margin:0!important;
+    line-height:0!important;
+    font-size:0!important;
 }}
-[data-testid="stHorizontalBlock"]:has(.card-sentinel) [data-testid="column"]:first-child [data-testid="stMarkdown"] {{
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) [data-testid="column"]:first-child [data-testid="stMarkdown"],
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) [data-testid="column"]:first-child [data-testid="stMarkdownContainer"],
+[data-testid="stHorizontalBlock"]:has(.card-sentinel) [data-testid="column"]:first-child .stMarkdown {{
     display:none!important;
     height:0!important;
     min-height:0!important;
+    max-height:0!important;
     overflow:hidden!important;
     padding:0!important;
     margin:0!important;
+    line-height:0!important;
+    font-size:0!important;
 }}
 /* ── Sub nav bar ── */
 [data-testid="stHorizontalBlock"]:has(.snav-sentinel) {{
@@ -1111,7 +1121,6 @@ st.markdown(f"""
 
 # ── Top nav buttons ──
 _nkeys = list(NAV_STRUCTURE.keys())
-st.markdown('<span class="tnav-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
 _ncols = st.columns(len(_nkeys), gap="small")
 for _ni, _nk in enumerate(_nkeys):
     with _ncols[_ni]:
