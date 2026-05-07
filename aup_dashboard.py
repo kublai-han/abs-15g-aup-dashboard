@@ -1098,10 +1098,10 @@ _nkeys = list(NAV_STRUCTURE.keys())
 _ncols = st.columns(len(_nkeys), gap="small")
 for _ni, _nk in enumerate(_nkeys):
     with _ncols[_ni]:
-        if _ni == 0:
-            st.markdown('<span class="tnav-sentinel"></span><style>[data-testid~="stMarkdown"]:has(.tnav-sentinel){position:absolute!important;width:0!important;height:0!important;overflow:hidden!important;top:0!important;left:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
         if st.button(NAV_STRUCTURE[_nk]["label"], key=f"tnav_{_nk}", use_container_width=True):
             _go(_nk)
+        if _ni == 0:
+            st.markdown('<span class="tnav-sentinel"></span><style>[data-testid~="stMarkdown"]:has(.tnav-sentinel){position:absolute!important;width:0!important;height:0!important;overflow:hidden!important;top:0!important;left:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
 
 # ── Sub-nav + breadcrumb (shown when inside a subcategory) ──
 if nav_sub and _sub_info:
@@ -1211,8 +1211,6 @@ if not nav_sub:
         _icon = _SUBCAT_ICONS.get(_s["key"], "📋")
         _desc = _SUBCAT_DESCS.get(_s["key"], "")
         with _card_cols[_ci % 5]:
-            if _ci == 0:
-                st.markdown('<span class="card-sentinel"></span><style>[data-testid~="stMarkdown"]:has(.card-sentinel){position:absolute!important;width:0!important;height:0!important;overflow:hidden!important;top:0!important;left:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
             if _s.get("has_data"):
                 if st.button(
                     f"{_icon}\n\n**{_s['label']}**\n\n{_desc}\n\n● Live Data",
@@ -1227,6 +1225,8 @@ if not nav_sub:
                     use_container_width=True,
                     disabled=True,
                 )
+            if _ci == 0:
+                st.markdown('<span class="card-sentinel"></span><style>[data-testid~="stMarkdown"]:has(.card-sentinel){position:absolute!important;width:0!important;height:0!important;overflow:hidden!important;top:0!important;left:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
     st.stop()
 
 elif _sub_info is None:
