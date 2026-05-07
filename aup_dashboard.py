@@ -1124,11 +1124,11 @@ if nav_sub and _sub_info:
 </style>""", unsafe_allow_html=True)
     for _si, _s in enumerate(_section["subs"]):
         with _scols[_si]:
-            if _si == 0:
-                st.markdown('<span class="snav-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
             if _s.get("has_data"):
                 if st.button(_s["label"], key=f"snav_{_s['key']}", use_container_width=True):
                     _go(nav_main, _s["key"])
+            if _si == 0:
+                st.markdown('<span class="snav-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
             else:
                 st.button(_s["label"], key=f"snav_{_s['key']}", use_container_width=True, disabled=True)
 
