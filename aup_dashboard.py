@@ -1065,32 +1065,6 @@ st.markdown(f"""<style>
     color:#a78bfa!important;border-bottom-color:#7b5ea7!important;font-weight:600!important;
 }}
 
-[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"]:first-child [data-testid="stMarkdown"],
-[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"]:first-child [data-testid="stMarkdownContainer"],
-[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"]:first-child .stMarkdown {{
-    display:none!important;
-    height:0!important;
-    min-height:0!important;
-    max-height:0!important;
-    overflow:hidden!important;
-    padding:0!important;
-    margin:0!important;
-    line-height:0!important;
-    font-size:0!important;
-}}
-[data-testid="stHorizontalBlock"]:has(.card-sentinel) [data-testid="column"]:first-child [data-testid="stMarkdown"],
-[data-testid="stHorizontalBlock"]:has(.card-sentinel) [data-testid="column"]:first-child [data-testid="stMarkdownContainer"],
-[data-testid="stHorizontalBlock"]:has(.card-sentinel) [data-testid="column"]:first-child .stMarkdown {{
-    display:none!important;
-    height:0!important;
-    min-height:0!important;
-    max-height:0!important;
-    overflow:hidden!important;
-    padding:0!important;
-    margin:0!important;
-    line-height:0!important;
-    font-size:0!important;
-}}
 /* ── Sub nav bar ── */
 [data-testid="stHorizontalBlock"]:has(.snav-sentinel) {{
     background:#0f0f24!important;
@@ -1125,7 +1099,7 @@ _ncols = st.columns(len(_nkeys), gap="small")
 for _ni, _nk in enumerate(_nkeys):
     with _ncols[_ni]:
         if _ni == 0:
-            st.markdown('<span class="tnav-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
+            st.markdown('<span class="tnav-sentinel"></span><style>[data-testid~="stMarkdown"]:has(.tnav-sentinel){position:absolute!important;width:0!important;height:0!important;overflow:hidden!important;top:0!important;left:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
         if st.button(NAV_STRUCTURE[_nk]["label"], key=f"tnav_{_nk}", use_container_width=True):
             _go(_nk)
 
@@ -1238,7 +1212,7 @@ if not nav_sub:
         _desc = _SUBCAT_DESCS.get(_s["key"], "")
         with _card_cols[_ci % 5]:
             if _ci == 0:
-                st.markdown('<span class="card-sentinel" style="position:absolute;display:none"></span>', unsafe_allow_html=True)
+                st.markdown('<span class="card-sentinel"></span><style>[data-testid~="stMarkdown"]:has(.card-sentinel){position:absolute!important;width:0!important;height:0!important;overflow:hidden!important;top:0!important;left:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
             if _s.get("has_data"):
                 if st.button(
                     f"{_icon}\n\n**{_s['label']}**\n\n{_desc}\n\n● Live Data",
