@@ -966,7 +966,9 @@ document.addEventListener('click', function(e) {
 
 # Columns that are right-aligned (numeric)
 _COL_RIGHT = {"Pool Size", "Sample", "Fields", "Findings", "Finding %",
-              "Avg Exception Rate (%)", "Min (%)", "Max (%)", "# of Deals", "AUP Rating"}
+              "Avg Exception Rate (%)", "Min (%)", "Max (%)", "# of Deals"}
+# Columns that use center alignment (headers + cells)
+_COL_CENTER = {"AUP Rating", "# of Deals", "Avg Exception Rate (%)", "Min (%)", "Max (%)"}
 # Columns that must not wrap
 _COL_NOWRAP = {"Filing Date", "Trust Series"}
 
@@ -977,7 +979,12 @@ def _table_html(df: pd.DataFrame, sortable: bool = False) -> str:
     for _, row in df.iterrows():
         cells = ""
         for col, val in zip(df.columns, row):
-            style = ' style="text-align:right"' if col in _COL_RIGHT else ""
+            if col in _COL_CENTER:
+                style = ' style="text-align:center"'
+            elif col in _COL_RIGHT:
+                style = ' style="text-align:right"'
+            else:
+                style = ""
             cells += f"<td{style}>{val}</td>"
         rows_html += f"<tr>{cells}</tr>"
 
@@ -987,7 +994,9 @@ def _table_html(df: pd.DataFrame, sortable: bool = False) -> str:
         if sortable:
             parts.append('class="sortable"')
         th_styles = []
-        if col in _COL_RIGHT:
+        if col in _COL_CENTER:
+            th_styles.append("text-align:center")
+        elif col in _COL_RIGHT:
             th_styles.append("text-align:right")
         if col in _COL_NOWRAP:
             th_styles.append("white-space:nowrap")
@@ -1715,9 +1724,14 @@ with tab3:
                 cs = 20 if sp<0.5 else 17 if sp<1 else 13 if sp<2 else 8 if sp<4 else 4
                 ts = 20 if cnt>=10 else 17 if cnt>=7 else 14 if cnt>=5 else 10 if cnt>=3 else 7 if cnt>=2 else 4
                 t  = rs + cs + ts
-                return ("AAA" if t>=92 else "AA" if t>=84 else "A" if t>=76 else
-                        "BBB" if t>=68 else "BB" if t>=58 else "B" if t>=48 else
-                        "CCC" if t>=38 else "CC" if t>=28 else "C")
+                # AAA requires perfect record (0% exceptions) AND ≥10 deals
+                if t >= 92 and avg == 0 and cnt >= 10:
+                    return "AAA"
+                t_capped = min(t, 91)  # cap below AAA if criteria not met
+                return ("AA"  if t_capped>=84 else "A"   if t_capped>=76 else
+                        "BBB" if t_capped>=68 else "BB"  if t_capped>=58 else
+                        "B"   if t_capped>=48 else "CCC" if t_capped>=38 else
+                        "CC"  if t_capped>=28 else "C")
             df_summary["AUP Rating"] = df_summary.apply(_aup_score, axis=1)
             for col in ["Avg Exception Rate (%)", "Min (%)", "Max (%)"]:
                 df_summary[col] = df_summary[col].map(lambda x: f"{x:.4f}")
