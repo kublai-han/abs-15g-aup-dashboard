@@ -966,7 +966,7 @@ document.addEventListener('click', function(e) {
 
 # Columns that are right-aligned (numeric)
 _COL_RIGHT = {"Pool Size", "Sample", "Fields", "Findings", "Finding %",
-              "Avg Exception Rate (%)", "Min (%)", "Max (%)", "# Procedures"}
+              "Avg Exception Rate (%)", "Min (%)", "Max (%)", "# of Deals", "AUP Rating"}
 # Columns that must not wrap
 _COL_NOWRAP = {"Filing Date", "Trust Series"}
 
@@ -1263,12 +1263,13 @@ else:
     # Tab variables reassigned so no content blocks need changing:
     #   tab3 → "AUP Results" | tab2 → "Issuer Profiles" | tab1 → "Market Overview"
     # ---------------------------------------------------------------------------
-    tab3, tab2, tab1, tab4, tab5 = st.tabs([
+    tab3, tab2, tab1, tab4, tab5, tab6 = st.tabs([
         "AUP Results",
         "Issuer Profiles",
         "Market Overview",
         "DQA Report",
         "Update Log",
+        "Rating Methodology",
     ])
 
 
@@ -1700,12 +1701,27 @@ with tab3:
                     "Avg": "Avg Exception Rate (%)",
                     "Min": "Min (%)",
                     "Max": "Max (%)",
-                    "Count": "# Procedures",
+                    "Count": "# of Deals",
                 })
                 .sort_values("Avg Exception Rate (%)", ascending=False)
             )
+            # ── AUP Rating: computed before formatting so values are numeric ──
+            def _aup_score(row):
+                avg = float(row["Avg Exception Rate (%)"])
+                mx  = float(row["Max (%)"])
+                cnt = int(row["# of Deals"])
+                rs = 60 if avg==0 else 55 if avg<0.5 else 48 if avg<1 else 40 if avg<2 else 30 if avg<4 else 20 if avg<7 else 10 if avg<10 else 0
+                sp = mx - avg
+                cs = 20 if sp<0.5 else 17 if sp<1 else 13 if sp<2 else 8 if sp<4 else 4
+                ts = 20 if cnt>=10 else 17 if cnt>=7 else 14 if cnt>=5 else 10 if cnt>=3 else 7 if cnt>=2 else 4
+                t  = rs + cs + ts
+                return ("AAA" if t>=92 else "AA" if t>=84 else "A" if t>=76 else
+                        "BBB" if t>=68 else "BB" if t>=58 else "B" if t>=48 else
+                        "CCC" if t>=38 else "CC" if t>=28 else "C")
+            df_summary["AUP Rating"] = df_summary.apply(_aup_score, axis=1)
             for col in ["Avg Exception Rate (%)", "Min (%)", "Max (%)"]:
                 df_summary[col] = df_summary[col].map(lambda x: f"{x:.4f}")
+            df_summary = df_summary[["Issuer", "AUP Rating", "# of Deals", "Avg Exception Rate (%)", "Min (%)", "Max (%)"]]
 
             st.html(_table_html(df_summary))
 
@@ -2084,5 +2100,133 @@ with tab5:
                     '<div class="info-box">No filing data available for coverage chart.</div>',
                     unsafe_allow_html=True,
                 )
+
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
+# ===========================================================================
+# TAB 6 — RATING METHODOLOGY
+# ===========================================================================
+
+with tab6:
+    st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
+    st.markdown('<div class="finsight-section-title">AUP Rating Methodology</div>', unsafe_allow_html=True)
+    st.markdown("""
+<style>
+.rating-table { width:100%; border-collapse:collapse; margin:1rem 0; }
+.rating-table th { background:#1e1e3f; color:#a78bfa; padding:0.6rem 1rem; text-align:left; border-bottom:2px solid #2d2d5e; font-size:0.82rem; letter-spacing:0.05em; }
+.rating-table td { padding:0.55rem 1rem; border-bottom:1px solid #2d2d5e; font-size:0.84rem; color:#cbd5e1; }
+.rating-table tr:hover td { background:#1a1a38; }
+.rating-badge { display:inline-block; padding:2px 10px; border-radius:4px; font-weight:700; font-size:0.85rem; }
+.r-aaa  { background:#0d4f30; color:#34d399; }
+.r-aa   { background:#134033; color:#6ee7b7; }
+.r-a    { background:#1e3a5f; color:#60a5fa; }
+.r-bbb  { background:#2d3a1e; color:#a3e635; }
+.r-bb   { background:#3d3010; color:#fbbf24; }
+.r-b    { background:#3d1e10; color:#fb923c; }
+.r-ccc  { background:#4a1010; color:#f87171; }
+.r-cc   { background:#3d0a0a; color:#ef4444; }
+.r-c    { background:#2d0505; color:#dc2626; }
+.method-section { background:#141428; border:1px solid #2d2d5e; border-radius:10px; padding:1.2rem 1.4rem; margin-bottom:1.2rem; }
+.method-section h3 { color:#a78bfa; font-size:0.95rem; margin:0 0 0.6rem; letter-spacing:0.06em; text-transform:uppercase; }
+.method-section p  { color:#94a3b8; font-size:0.85rem; line-height:1.6; margin:0; }
+.score-bar { display:flex; align-items:center; gap:0.5rem; margin:0.3rem 0; }
+.score-label { color:#cbd5e1; font-size:0.82rem; width:200px; }
+.score-val { color:#a78bfa; font-weight:600; font-size:0.82rem; }
+</style>
+
+<div class="method-section">
+<h3>Overview</h3>
+<p>The AUP Rating is a proprietary, data-driven score assigned to each consumer ABS issuer based on
+their historical performance across SEC ABS-15G agreed-upon-procedures (AUP) audit filings.
+The methodology follows a three-factor model — Exception Rate, Consistency, and Track Record — 
+weighted to reflect the most material drivers of credit quality in ABS collateral verification.</p>
+</div>
+
+<div class="method-section">
+<h3>Factor 1: Exception Rate (60 points)</h3>
+<p>The average exception rate across all AUP procedures is the primary rating driver. Issuers with 
+zero or near-zero exception rates indicate robust internal controls and data integrity.</p>
+</div>
+""", unsafe_allow_html=True)
+
+    col_r1, col_r2 = st.columns(2)
+    with col_r1:
+        st.markdown("""
+<table class="rating-table">
+<thead><tr><th>Avg Exception Rate</th><th>Points (max 60)</th></tr></thead>
+<tbody>
+<tr><td>0.00% (clean record)</td><td>60</td></tr>
+<tr><td>0.01% – 0.49%</td><td>55</td></tr>
+<tr><td>0.50% – 0.99%</td><td>48</td></tr>
+<tr><td>1.00% – 1.99%</td><td>40</td></tr>
+<tr><td>2.00% – 3.99%</td><td>30</td></tr>
+<tr><td>4.00% – 6.99%</td><td>20</td></tr>
+<tr><td>7.00% – 9.99%</td><td>10</td></tr>
+<tr><td>≥ 10.00%</td><td>0</td></tr>
+</tbody></table>
+""", unsafe_allow_html=True)
+
+    with col_r2:
+        st.markdown("""
+<div class="method-section">
+<h3>Factor 2: Consistency (20 points)</h3>
+<p>Measures how stable exception rates are across deals. 
+A small spread between average and maximum exception rate indicates 
+consistent underwriting and servicing standards.</p>
+</div>
+<table class="rating-table">
+<thead><tr><th>Max – Avg Spread</th><th>Points (max 20)</th></tr></thead>
+<tbody>
+<tr><td>&lt; 0.50%</td><td>20</td></tr>
+<tr><td>0.50% – 0.99%</td><td>17</td></tr>
+<tr><td>1.00% – 1.99%</td><td>13</td></tr>
+<tr><td>2.00% – 3.99%</td><td>8</td></tr>
+<tr><td>≥ 4.00%</td><td>4</td></tr>
+</tbody></table>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="method-section">
+<h3>Factor 3: Track Record (20 points)</h3>
+<p>Issuers with more completed AUP audits demonstrate a longer, verifiable history of 
+compliance performance. A larger deal count provides greater statistical confidence in the rating.</p>
+</div>
+<table class="rating-table">
+<thead><tr><th>Number of Audited Deals</th><th>Points (max 20)</th></tr></thead>
+<tbody>
+<tr><td>≥ 10 deals</td><td>20</td></tr>
+<tr><td>7 – 9 deals</td><td>17</td></tr>
+<tr><td>5 – 6 deals</td><td>14</td></tr>
+<tr><td>3 – 4 deals</td><td>10</td></tr>
+<tr><td>2 deals</td><td>7</td></tr>
+<tr><td>1 deal</td><td>4</td></tr>
+</tbody></table>
+
+<div class="method-section" style="margin-top:1.2rem;">
+<h3>Rating Scale</h3>
+<p>Total score (0–100) maps to S&amp;P-equivalent rating symbols:</p>
+</div>
+<table class="rating-table">
+<thead><tr><th>Score Range</th><th>AUP Rating</th><th>Interpretation</th></tr></thead>
+<tbody>
+<tr><td>92 – 100</td><td><span class="rating-badge r-aaa">AAA</span></td><td>Exceptional — zero or near-zero exceptions, consistent, extensive track record</td></tr>
+<tr><td>84 – 91</td><td><span class="rating-badge r-aa">AA</span></td><td>Very Strong — minimal exceptions, highly consistent performance</td></tr>
+<tr><td>76 – 83</td><td><span class="rating-badge r-a">A</span></td><td>Strong — low exception rate with solid consistency</td></tr>
+<tr><td>68 – 75</td><td><span class="rating-badge r-bbb">BBB</span></td><td>Adequate — moderate exceptions, acceptable consistency</td></tr>
+<tr><td>58 – 67</td><td><span class="rating-badge r-bb">BB</span></td><td>Speculative — elevated exceptions or high variability</td></tr>
+<tr><td>48 – 57</td><td><span class="rating-badge r-b">B</span></td><td>Vulnerable — frequent exceptions, limited track record</td></tr>
+<tr><td>38 – 47</td><td><span class="rating-badge r-ccc">CCC</span></td><td>Highly Vulnerable — persistent high exception rates</td></tr>
+<tr><td>28 – 37</td><td><span class="rating-badge r-cc">CC</span></td><td>Extremely Vulnerable — very high exceptions across all deals</td></tr>
+<tr><td>0 – 27</td><td><span class="rating-badge r-c">C</span></td><td>Critical — systemic exception rates above 10%</td></tr>
+</tbody></table>
+
+<div class="method-section" style="margin-top:1.2rem;">
+<h3>Important Disclosures</h3>
+<p>AUP Ratings are based solely on data extracted from SEC ABS-15G filings and reflect AUP audit 
+outcomes only. They are not credit ratings and should not be used as a substitute for full credit 
+analysis. Ratings are updated automatically as new ABS-15G filings are processed. Issuers with fewer 
+deals should be interpreted with appropriate caution given limited sample size.</p>
+</div>
+""", unsafe_allow_html=True)
 
     st.markdown("</div></div>", unsafe_allow_html=True)
