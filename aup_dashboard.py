@@ -785,6 +785,18 @@ st.markdown(
         .nav-breadcrumb a:hover { text-decoration: underline; }
         .nav-breadcrumb .sep { color: #2d2d5e; font-size: 0.7rem; }
         .nav-breadcrumb .bc-current { color: #94a3b8; }
+        /* ── Rating badges (used in Summary Stats & Methodology) ── */
+        .rating-badge { display:inline-block; padding:2px 10px; border-radius:4px;
+                        font-weight:700; font-size:0.82rem; min-width:42px; text-align:center; }
+        .r-aaa { background:#0d4f30; color:#34d399; }
+        .r-aa  { background:#134033; color:#6ee7b7; }
+        .r-a   { background:#1e3a5f; color:#60a5fa; }
+        .r-bbb { background:#2d3a1e; color:#a3e635; }
+        .r-bb  { background:#3d3010; color:#fbbf24; }
+        .r-b   { background:#3d1e10; color:#fb923c; }
+        .r-ccc { background:#4a1010; color:#f87171; }
+        .r-cc  { background:#3d0a0a; color:#ef4444; }
+        .r-c   { background:#2d0505; color:#dc2626; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -1726,12 +1738,30 @@ with tab3:
                 t  = rs + cs + ts
                 # AAA requires perfect record (0% exceptions) AND ≥10 deals
                 if t >= 92 and avg == 0 and cnt >= 10:
-                    return "AAA"
-                t_capped = min(t, 91)  # cap below AAA if criteria not met
-                return ("AA"  if t_capped>=84 else "A"   if t_capped>=76 else
-                        "BBB" if t_capped>=68 else "BB"  if t_capped>=58 else
-                        "B"   if t_capped>=48 else "CCC" if t_capped>=38 else
-                        "CC"  if t_capped>=28 else "C")
+                    rating, cls = "AAA", "r-aaa"
+                else:
+                    t = min(t, 91)  # cap below AAA if criteria not met
+                    if   t >= 90: rating, cls = "AA+",  "r-aa"
+                    elif t >= 87: rating, cls = "AA",   "r-aa"
+                    elif t >= 84: rating, cls = "AA-",  "r-aa"
+                    elif t >= 82: rating, cls = "A+",   "r-a"
+                    elif t >= 79: rating, cls = "A",    "r-a"
+                    elif t >= 76: rating, cls = "A-",   "r-a"
+                    elif t >= 74: rating, cls = "BBB+", "r-bbb"
+                    elif t >= 71: rating, cls = "BBB",  "r-bbb"
+                    elif t >= 68: rating, cls = "BBB-", "r-bbb"
+                    elif t >= 65: rating, cls = "BB+",  "r-bb"
+                    elif t >= 61: rating, cls = "BB",   "r-bb"
+                    elif t >= 58: rating, cls = "BB-",  "r-bb"
+                    elif t >= 55: rating, cls = "B+",   "r-b"
+                    elif t >= 51: rating, cls = "B",    "r-b"
+                    elif t >= 48: rating, cls = "B-",   "r-b"
+                    elif t >= 45: rating, cls = "CCC+", "r-ccc"
+                    elif t >= 41: rating, cls = "CCC",  "r-ccc"
+                    elif t >= 38: rating, cls = "CCC-", "r-ccc"
+                    elif t >= 28: rating, cls = "CC",   "r-cc"
+                    else:         rating, cls = "C",    "r-c"
+                return f'<span class="rating-badge {cls}">{rating}</span>'
             df_summary["AUP Rating"] = df_summary.apply(_aup_score, axis=1)
             for col in ["Avg Exception Rate (%)", "Min (%)", "Max (%)"]:
                 df_summary[col] = df_summary[col].map(lambda x: f"{x:.4f}")
@@ -2223,13 +2253,25 @@ compliance performance. A larger deal count provides greater statistical confide
 <table class="rating-table">
 <thead><tr><th>Score Range</th><th>AUP Rating</th><th>Interpretation</th></tr></thead>
 <tbody>
-<tr><td>92 – 100</td><td><span class="rating-badge r-aaa">AAA</span></td><td>Exceptional — zero or near-zero exceptions, consistent, extensive track record</td></tr>
-<tr><td>84 – 91</td><td><span class="rating-badge r-aa">AA</span></td><td>Very Strong — minimal exceptions, highly consistent performance</td></tr>
-<tr><td>76 – 83</td><td><span class="rating-badge r-a">A</span></td><td>Strong — low exception rate with solid consistency</td></tr>
-<tr><td>68 – 75</td><td><span class="rating-badge r-bbb">BBB</span></td><td>Adequate — moderate exceptions, acceptable consistency</td></tr>
-<tr><td>58 – 67</td><td><span class="rating-badge r-bb">BB</span></td><td>Speculative — elevated exceptions or high variability</td></tr>
-<tr><td>48 – 57</td><td><span class="rating-badge r-b">B</span></td><td>Vulnerable — frequent exceptions, limited track record</td></tr>
-<tr><td>38 – 47</td><td><span class="rating-badge r-ccc">CCC</span></td><td>Highly Vulnerable — persistent high exception rates</td></tr>
+<tr><td>92 – 100 + perfect record + ≥10 deals</td><td><span class="rating-badge r-aaa">AAA</span></td><td>Exceptional — zero exceptions, consistent, extensive track record</td></tr>
+<tr><td>90 – 91</td><td><span class="rating-badge r-aa">AA+</span></td><td rowspan="3">Very Strong — minimal exceptions, highly consistent performance</td></tr>
+<tr><td>87 – 89</td><td><span class="rating-badge r-aa">AA</span></td></tr>
+<tr><td>84 – 86</td><td><span class="rating-badge r-aa">AA-</span></td></tr>
+<tr><td>82 – 83</td><td><span class="rating-badge r-a">A+</span></td><td rowspan="3">Strong — low exception rate with solid consistency</td></tr>
+<tr><td>79 – 81</td><td><span class="rating-badge r-a">A</span></td></tr>
+<tr><td>76 – 78</td><td><span class="rating-badge r-a">A-</span></td></tr>
+<tr><td>74 – 75</td><td><span class="rating-badge r-bbb">BBB+</span></td><td rowspan="3">Adequate — moderate exceptions, acceptable consistency</td></tr>
+<tr><td>71 – 73</td><td><span class="rating-badge r-bbb">BBB</span></td></tr>
+<tr><td>68 – 70</td><td><span class="rating-badge r-bbb">BBB-</span></td></tr>
+<tr><td>65 – 67</td><td><span class="rating-badge r-bb">BB+</span></td><td rowspan="3">Speculative — elevated exceptions or high variability</td></tr>
+<tr><td>61 – 64</td><td><span class="rating-badge r-bb">BB</span></td></tr>
+<tr><td>58 – 60</td><td><span class="rating-badge r-bb">BB-</span></td></tr>
+<tr><td>55 – 57</td><td><span class="rating-badge r-b">B+</span></td><td rowspan="3">Vulnerable — frequent exceptions, limited track record</td></tr>
+<tr><td>51 – 54</td><td><span class="rating-badge r-b">B</span></td></tr>
+<tr><td>48 – 50</td><td><span class="rating-badge r-b">B-</span></td></tr>
+<tr><td>45 – 47</td><td><span class="rating-badge r-ccc">CCC+</span></td><td rowspan="3">Highly Vulnerable — persistent high exception rates</td></tr>
+<tr><td>41 – 44</td><td><span class="rating-badge r-ccc">CCC</span></td></tr>
+<tr><td>38 – 40</td><td><span class="rating-badge r-ccc">CCC-</span></td></tr>
 <tr><td>28 – 37</td><td><span class="rating-badge r-cc">CC</span></td><td>Extremely Vulnerable — very high exceptions across all deals</td></tr>
 <tr><td>0 – 27</td><td><span class="rating-badge r-c">C</span></td><td>Critical — systemic exception rates above 10%</td></tr>
 </tbody></table>
