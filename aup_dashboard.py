@@ -966,8 +966,8 @@ document.addEventListener('click', function(e) {
   var tbody = table.querySelector('tbody');
   var rows = Array.from(tbody.querySelectorAll('tr'));
   rows.sort(function(a, b) {
-    var av = (a.cells[ci] ? a.cells[ci].innerText.trim() : '');
-    var bv = (b.cells[ci] ? b.cells[ci].innerText.trim() : '');
+    var av = (a.cells[ci] ? (a.cells[ci].dataset.sort || a.cells[ci].innerText.trim()) : '');
+    var bv = (b.cells[ci] ? (b.cells[ci].dataset.sort || b.cells[ci].innerText.trim()) : '');
     var an = parseFloat(av.replace(/[,%]/g,'')), bn = parseFloat(bv.replace(/[,%]/g,''));
     var cmp = (!isNaN(an) && !isNaN(bn)) ? an - bn : av.localeCompare(bv);
     return table._sort.asc ? cmp : -cmp;
@@ -985,10 +985,11 @@ _COL_CENTER = {"AUP Rating", "# of Deals", "Avg Exception Rate (%)", "Min (%)", 
 _COL_NOWRAP = {"Filing Date", "Trust Series"}
 
 
-def _table_html(df: pd.DataFrame, sortable: bool = False) -> str:
+def _table_html(df: pd.DataFrame, sortable: bool = False, sort_overrides: dict = None) -> str:
     """Render a DataFrame as a dark-styled HTML table (self-contained for st.html)."""
+    sort_overrides = sort_overrides or {}
     rows_html = ""
-    for _, row in df.iterrows():
+    for i, (_, row) in enumerate(df.iterrows()):
         cells = ""
         for col, val in zip(df.columns, row):
             if col in _COL_CENTER:
@@ -997,7 +998,11 @@ def _table_html(df: pd.DataFrame, sortable: bool = False) -> str:
                 style = ' style="text-align:right"'
             else:
                 style = ""
-            cells += f"<td{style}>{val}</td>"
+            if col in sort_overrides:
+                sv = sort_overrides[col][i] if i < len(sort_overrides[col]) else ""
+                cells += f'<td{style} data-sort="{sv}">{val}</td>'
+            else:
+                cells += f"<td{style}>{val}</td>"
         rows_html += f"<tr>{cells}</tr>"
 
     headers = ""
@@ -1789,6 +1794,9 @@ with tab3:
                 "Findings", "Finding %", "Finding Details",
             ]
             df_display["Finding Details"] = df_display["Finding Details"].apply(_fmt_finding)
+            filing_date_iso = df_display["Filing Date"].apply(
+                lambda x: x.strftime("%Y-%m-%d") if pd.notna(x) else ""
+            ).tolist()
             df_display["Filing Date"] = df_display["Filing Date"].apply(
                 lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "—"
             )
@@ -1813,7 +1821,7 @@ with tab3:
             )
             # Use components.html so JavaScript click events work (st.html iframes block them)
             tbl_height = min(40 + len(df_display) * 38 + 20, 600)
-            components.html(_table_html(df_display, sortable=True), height=tbl_height, scrolling=True)
+            components.html(_table_html(df_display, sortable=True, sort_overrides={"Filing Date": filing_date_iso}), height=tbl_height, scrolling=True)
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
