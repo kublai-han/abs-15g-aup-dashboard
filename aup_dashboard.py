@@ -1053,6 +1053,12 @@ if nav_main not in NAV_STRUCTURE:
 _section  = NAV_STRUCTURE[nav_main]
 _sub_info = next((s for s in _section["subs"] if s["key"] == nav_sub), None)
 
+_cur_type     = _sub_info["issuer_type"] if _sub_info else None
+_page_issuers = (
+    {k: v for k, v in ISSUERS.items() if v.get("type") == _cur_type}
+    if _cur_type else ISSUERS
+)
+
 # ---------------------------------------------------------------------------
 # Header + Navigation — st.button + st.query_params gives smooth same-page
 # navigation without page reloads or new tabs.
@@ -1308,7 +1314,8 @@ with tab1:
 
     # --- Summary metrics ---
     all_filings = db.get_filings(limit=10_000, db_path=DB_PATH) if DB_PATH.exists() else []
-    total_issuers = len(ISSUERS)
+    all_filings = [f for f in all_filings if f.get("issuer_key") in _page_issuers]
+    total_issuers = len(_page_issuers)
     total_filings = len(all_filings)
 
     if all_filings:
@@ -1385,7 +1392,7 @@ with tab1:
         </style>
         """
         cards_html = _CARD_CSS + '<div class="issuer-grid">'
-        for key, issuer in ISSUERS.items():
+        for key, issuer in _page_issuers.items():
             badge_html = _sector_badge_html(issuer.get("type", ""))
             count = filing_counts.get(key, 0)
             latest = _fmt_date(latest_dates.get(key))
@@ -1425,7 +1432,7 @@ with tab1:
         latest_dates = _latest_date_per_issuer()
 
         rows = []
-        for key, issuer in ISSUERS.items():
+        for key, issuer in _page_issuers.items():
             edgar_url = _issuer_edgar_url(issuer["cik"])
             label, color = SECTOR_BADGES.get(issuer.get("type", ""), ("ABS", "#7b5ea7"))
             badge_cell = (
@@ -1457,7 +1464,7 @@ with tab2:
     st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
     st.markdown('<div class="finsight-section-title">Issuer Profiles</div>', unsafe_allow_html=True)
 
-    issuer_options = {v["name"]: k for k, v in ISSUERS.items()}
+    issuer_options = {v["name"]: k for k, v in _page_issuers.items()}
 
     col_sel, col_spacer = st.columns([2, 5])
     with col_sel:
@@ -1577,6 +1584,7 @@ with tab3:
         _no_data_banner()
     else:
         all_results = db.get_aup_results(limit=5000, db_path=DB_PATH)
+        all_results = [r for r in all_results if r.get("issuer_key") in _page_issuers]
 
         if not all_results:
             _no_data_banner()
