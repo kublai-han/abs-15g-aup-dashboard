@@ -104,6 +104,68 @@ ISSUERS = {
 }
 
 
+
+CREDIT_CARD_ISSUERS = {
+    "capital_one": {
+        "name": "Capital One",
+        "cik": "0001397228",   # Capital One Funding, LLC (depositor)
+        "ciks": ["0001397228", "0001141753"],  # also Capital One Multi-Asset Execution Trust (issuer)
+        "type": "credit_card",
+        "active": True,
+    },
+    "jpmorgan_chase": {
+        "name": "JPMorgan Chase",
+        "cik": "0001391113",   # Chase Card Funding LLC (depositor)
+        "ciks": ["0001391113", "0001174821"],  # also Chase Issuance Trust
+        "type": "credit_card",
+        "active": True,
+    },
+    "american_express": {
+        "name": "American Express",
+        "cik": "0001421238",   # American Express Receivables Financing Corporation V LLC (depositor)
+        "ciks": ["0001421238", "0000880056"],  # also American Express Credit Account Master Trust
+        "type": "credit_card",
+        "active": True,
+    },
+    "synchrony": {
+        "name": "Synchrony Financial",
+        "cik": "0001722837",   # Synchrony Card Funding, LLC (depositor)
+        "ciks": ["0001722837", "0001709527"],  # also Synchrony Card Issuance Trust
+        "type": "credit_card",
+        "active": True,
+    },
+    "discover": {
+        "name": "Discover",
+        "cik": "0001093587",   # Discover Funding LLC (depositor)
+        "ciks": ["0001093587", "0001356443"],  # also Discover Card Execution Note Trust
+        "type": "credit_card",
+        "active": True,
+    },
+    "citi": {
+        "name": "Citi",
+        "cik": "0001108348",   # Citibank Credit Card Issuance Trust
+        "type": "credit_card",
+        "active": True,
+    },
+    "bank_of_america": {
+        "name": "Bank of America",
+        "cik": "0001244910",   # BA Credit Card Funding LLC (depositor)
+        "ciks": ["0001244910", "0001140026"],  # also BA Credit Card Trust
+        "type": "credit_card",
+        "active": True,
+    },
+    "barclays": {
+        "name": "Barclays",
+        "cik": "0001574762",   # Barclays Dryrock Funding LLC (depositor)
+        "ciks": ["0001574762", "0001574761"],  # also Dryrock Issuance Trust
+        "type": "credit_card",
+        "active": True,
+    },
+}
+
+ISSUERS.update(CREDIT_CARD_ISSUERS)
+
+
 def get_all_ciks() -> dict[str, str]:
     """
     Return a mapping of issuer_key -> CIK for all registered issuers.

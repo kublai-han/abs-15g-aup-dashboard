@@ -60,6 +60,7 @@ SECTOR_BADGES: dict[str, tuple[str, str]] = {
     "student_loan":        ("STUD", "#059669"),
     "mortgage":            ("RMBS", "#d97706"),
     "small_business_loan": ("SMB",  "#db2777"),
+    "credit_card":         ("CC",   "#0ea5e9"),
 }
 
 ASSET_TYPE_LABELS: dict[str, str] = {
@@ -68,6 +69,7 @@ ASSET_TYPE_LABELS: dict[str, str] = {
     "student_loan":        "Student Loan",
     "mortgage":            "Mortgage",
     "small_business_loan": "Small Business Loan",
+    "credit_card":         "Credit Card",
 }
 
 # Top-level navigation tree — has_data controls landing card interactivity
@@ -76,7 +78,7 @@ NAV_STRUCTURE: dict[str, dict] = {
         "label": "Asset Backed Securities", "short": "ABS", "color": "#7b5ea7",
         "subs": [
             {"key": "auto",           "label": "Auto",           "issuer_type": "auto",          "has_data": False},
-            {"key": "credit_card",    "label": "Credit Card",    "issuer_type": "credit_card",   "has_data": False},
+            {"key": "credit_card",    "label": "Credit Card",    "issuer_type": "credit_card",   "has_data": True},
             {"key": "consumer_loans", "label": "Consumer Loans", "issuer_type": "consumer_loan", "has_data": True},
             {"key": "esoteric",       "label": "Esoteric",       "issuer_type": "esoteric",      "has_data": False},
             {"key": "equipment",      "label": "Equipment",      "issuer_type": "equipment",     "has_data": False},
@@ -1598,7 +1600,7 @@ with tab3:
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 
             # Normalize asset_type label
-            _ASSET_LABELS = {"consumer_loan": "Consumer Loan", "auto": "Auto Loan"}
+            _ASSET_LABELS = {"consumer_loan": "Consumer Loan", "auto": "Auto Loan", "credit_card": "Credit Card"}
             df["asset_type"] = df["asset_type"].fillna("consumer_loan")
             df["Asset Type"] = df["asset_type"].map(_ASSET_LABELS).fillna(df["asset_type"])
 
