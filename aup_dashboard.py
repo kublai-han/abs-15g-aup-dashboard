@@ -44,7 +44,6 @@ from issuers import ISSUERS
 # ---------------------------------------------------------------------------
 
 DB_PATH = _DIR / "aup_dashboard.db"
-DQA_REPORT_PATH = _DIR / "dqa_report.md"
 
 EDGAR_FILING_BASE = (
     "https://www.sec.gov/cgi-bin/browse-edgar"
@@ -1289,11 +1288,10 @@ else:
     # Tab variables reassigned so no content blocks need changing:
     #   tab3 → "AUP Results" | tab2 → "Issuer Profiles" | tab1 → "Market Overview"
     # ---------------------------------------------------------------------------
-    tab3, tab2, tab1, tab4, tab5, tab6 = st.tabs([
+    tab3, tab2, tab1, tab5, tab6 = st.tabs([
         "AUP Results",
         "Issuer Profiles",
         "Market Overview",
-        "DQA Report",
         "Update Log",
         "Rating Methodology",
     ])
@@ -1822,167 +1820,6 @@ with tab3:
             # Use components.html so JavaScript click events work (st.html iframes block them)
             tbl_height = min(40 + len(df_display) * 38 + 20, 600)
             components.html(_table_html(df_display, sortable=True, sort_overrides={"Filing Date": filing_date_iso}), height=tbl_height, scrolling=True)
-
-    st.markdown("</div></div>", unsafe_allow_html=True)
-
-
-# ===========================================================================
-# TAB 4 — DQA REPORT
-# ===========================================================================
-
-with tab4:
-    st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
-    st.markdown('<div class="finsight-section-title">Data Quality Assurance Report</div>', unsafe_allow_html=True)
-
-    # --- Status summary from DB ---
-    if DB_PATH.exists():
-        all_dqa = db.get_dqa_log(limit=2000, db_path=DB_PATH)
-    else:
-        all_dqa = []
-
-    if all_dqa:
-        df_dqa_all = pd.DataFrame(all_dqa)
-        status_counts = df_dqa_all["status"].value_counts().to_dict()
-
-        pass_n  = status_counts.get("pass", 0)
-        fail_n  = status_counts.get("fail", 0)
-        warn_n  = status_counts.get("warn", 0)
-        skip_n  = status_counts.get("skip", 0)
-        total_n = sum(status_counts.values())
-
-        st.markdown(
-            f"""
-            <div class="metric-grid">
-                <div class="metric-card" style="border-color:#00c89640;">
-                    <div class="metric-label" style="color:#00c896;">Pass</div>
-                    <div class="metric-value" style="color:#00c896;">{pass_n}</div>
-                    <div class="metric-sub">of {total_n} checks</div>
-                </div>
-                <div class="metric-card" style="border-color:#ff475740;">
-                    <div class="metric-label" style="color:#ff4757;">Fail</div>
-                    <div class="metric-value" style="color:#ff4757;">{fail_n}</div>
-                    <div class="metric-sub">of {total_n} checks</div>
-                </div>
-                <div class="metric-card" style="border-color:#ffd16640;">
-                    <div class="metric-label" style="color:#ffd166;">Warn / Skip</div>
-                    <div class="metric-value" style="color:#ffd166;">{warn_n + skip_n}</div>
-                    <div class="metric-sub">of {total_n} checks</div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        # Donut chart
-        fig_pie = px.pie(
-            pd.DataFrame([
-                {"Status": k.upper(), "Count": v}
-                for k, v in status_counts.items()
-            ]),
-            names="Status",
-            values="Count",
-            hole=0.5,
-            color="Status",
-            color_discrete_map={
-                "PASS": "#00c896",
-                "FAIL": "#ff4757",
-                "WARN": "#ffd166",
-                "SKIP": "#94a3b8",
-            },
-        )
-        fig_pie.update_traces(
-            textinfo="label+percent",
-            textfont=dict(color="#f1f5f9", size=11),
-        )
-        pie_layout = _dark_plotly_layout()
-        pie_layout["showlegend"] = False
-        pie_layout["height"] = 300
-        fig_pie.update_layout(**pie_layout)
-
-        col_pie, col_filt = st.columns([1, 2])
-        with col_pie:
-            st.plotly_chart(fig_pie, use_container_width=True)
-
-        with col_filt:
-            st.markdown('<div class="finsight-section-title">Filter DQA Log</div>', unsafe_allow_html=True)
-            d_col1, d_col2, d_col3 = st.columns(3)
-            with d_col1:
-                st.markdown('<div class="filter-label">Issuer</div>', unsafe_allow_html=True)
-                dqa_issuer_opts = ["All"] + sorted(ISSUERS.keys())
-                dqa_issuer = st.selectbox(
-                    "DQAIssuer", dqa_issuer_opts, label_visibility="collapsed"
-                )
-            with d_col2:
-                st.markdown('<div class="filter-label">Status</div>', unsafe_allow_html=True)
-                dqa_status = st.selectbox(
-                    "DQAStatus", ["All", "pass", "fail", "warn", "skip"],
-                    label_visibility="collapsed"
-                )
-            with d_col3:
-                st.markdown('<div class="filter-label">Max Rows</div>', unsafe_allow_html=True)
-                dqa_limit = st.number_input(
-                    "DQALimit", min_value=10, max_value=2000, value=200, step=10,
-                    label_visibility="collapsed"
-                )
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown(
-            '<div class="finsight-section-title">DQA Check Log</div>', unsafe_allow_html=True
-        )
-
-        dqa_rows = db.get_dqa_log(
-            issuer_key=None if dqa_issuer == "All" else dqa_issuer,
-            status=None if dqa_status == "All" else dqa_status,
-            limit=int(dqa_limit),
-            db_path=DB_PATH,
-        )
-
-        if dqa_rows:
-            display_rows = []
-            for r in dqa_rows:
-                iname = ISSUERS.get(r["issuer_key"], {}).get("name", r["issuer_key"])
-                display_rows.append({
-                    "Date": _fmt_date(r.get("check_date")),
-                    "Issuer": iname,
-                    "Check Type": r.get("check_type", "—"),
-                    "Status": _badge_html(r.get("status", "skip")),
-                    "Filing ID": r.get("filing_id", "—"),
-                    "Notes": r.get("notes", "—"),
-                })
-            st.html(_table_html(pd.DataFrame(display_rows)))
-        else:
-            st.markdown(
-                '<div class="info-box">No records match the selected filters.</div>',
-                unsafe_allow_html=True,
-            )
-    else:
-        st.markdown(
-            '<div class="info-box">No DQA log entries found. Run the updater to generate check records.</div>',
-            unsafe_allow_html=True,
-        )
-
-    # --- DQA Report markdown file ---
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown(
-        '<div class="finsight-section-title">Data Quality Assurance Report (dqa_report.md)</div>',
-        unsafe_allow_html=True,
-    )
-
-    if DQA_REPORT_PATH.exists():
-        dqa_md_text = DQA_REPORT_PATH.read_text(encoding="utf-8")
-        with st.expander("Expand full DQA report", expanded=True):
-            st.markdown(
-                f'<div style="background:#1e1e3f;border:1px solid #2d2d5e;border-radius:8px;'
-                f'padding:1.25rem 1.5rem;font-size:0.84rem;line-height:1.7;color:#cbd5e1;">'
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-            st.markdown(dqa_md_text)
-    else:
-        st.markdown(
-            '<div class="info-box">dqa_report.md not found in the project directory.</div>',
-            unsafe_allow_html=True,
-        )
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
