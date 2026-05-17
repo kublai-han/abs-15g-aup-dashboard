@@ -817,9 +817,10 @@ def _db_ready() -> bool:
 
 def _no_data_banner() -> None:
     st.markdown(
-        '<div class="info-box">No data yet — run the updater to populate the database.'
-        "<br>Use the <b>Run Update</b> button above, or execute "
-        "<code>python aup_updater.py</code> from the command line.</div>",
+        '<div class="info-box">No data yet for this asset class. '
+        "Data is refreshed automatically each day via the scheduled GitHub Actions workflow. "
+        "To trigger an update immediately, go to the <b>Actions</b> tab in the GitHub repo "
+        "and run <b>Daily AUP Database Update</b> manually.</div>",
         unsafe_allow_html=True,
     )
 
