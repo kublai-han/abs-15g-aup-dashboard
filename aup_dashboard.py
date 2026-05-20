@@ -77,7 +77,7 @@ NAV_STRUCTURE: dict[str, dict] = {
     "abs": {
         "label": "Asset Backed Securities", "short": "ABS", "color": "#7b5ea7",
         "subs": [
-            {"key": "auto",           "label": "Auto",           "issuer_type": "auto",          "has_data": False},
+            {"key": "auto",           "label": "Auto",           "issuer_type": "auto",          "has_data": True},
             {"key": "credit_card",    "label": "Credit Card",    "issuer_type": "credit_card",   "has_data": True},
             {"key": "consumer_loans", "label": "Consumer Loans", "issuer_type": "consumer_loan", "has_data": True},
             {"key": "esoteric",       "label": "Esoteric",       "issuer_type": "esoteric",      "has_data": False},
@@ -1609,7 +1609,7 @@ with tab3:
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 
             # Normalize asset_type label
-            _ASSET_LABELS = {"consumer_loan": "Consumer Loan", "auto": "Auto Loan", "credit_card": "Credit Card"}
+            _ASSET_LABELS = {"consumer_loan": "Consumer Loan", "auto": "Auto", "credit_card": "Credit Card"}
             df["asset_type"] = df["asset_type"].fillna("consumer_loan")
             df["Asset Type"] = df["asset_type"].map(_ASSET_LABELS).fillna(df["asset_type"])
 

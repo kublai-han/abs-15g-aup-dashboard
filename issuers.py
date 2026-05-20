@@ -152,6 +152,62 @@ CREDIT_CARD_ISSUERS = {
 
 ISSUERS.update(CREDIT_CARD_ISSUERS)
 
+# ---------------------------------------------------------------------------
+# Auto ABS issuers — verified ABS-15G filers with 2024+ activity
+# ---------------------------------------------------------------------------
+AUTO_ISSUERS = {
+    "ford_credit": {
+        "name": "Ford Credit",
+        "cik": "0001129987",   # Ford Credit Auto Receivables Two LLC — 33 filings, latest 2026-03-09
+        "type": "auto",
+        "active": True,
+    },
+    "ally_auto": {
+        "name": "Ally Financial",
+        "cik": "0001477336",   # Ally Auto Assets LLC — 15 filings, latest 2026-02-23
+        "type": "auto",
+        "active": True,
+    },
+    "santander_drive": {
+        "name": "Santander Consumer USA",
+        "cik": "0001383094",   # Santander Drive Auto Receivables LLC — 7 filings, latest 2026-02-10
+        "type": "auto",
+        "active": True,
+    },
+    "westlake": {
+        "name": "Westlake Financial",
+        "cik": "0001675921",   # WPS IV, LLC (Westlake) — 35 filings, latest 2026-04-29
+        "type": "auto",
+        "active": True,
+    },
+    "avis_budget": {
+        "name": "Avis Budget Group",
+        "cik": "0001664774",   # Avis Budget Rental Car Funding (AESOP) LLC — 24 filings, latest 2026-05-14
+        "type": "auto",
+        "active": True,
+    },
+    "consumer_portfolio": {
+        "name": "Consumer Portfolio Services",
+        "cik": "0001518859",   # CPS Receivables Five LLC — 43 filings, latest 2026-04-09
+        "type": "auto",
+        "active": True,
+    },
+    "prestige_financial": {
+        "name": "Prestige Financial Services",
+        "cik": "0001541629",   # Prestige Financial Services — 28 filings, latest 2026-02-11
+        "type": "auto",
+        "active": True,
+    },
+    "stellantis": {
+        "name": "Stellantis Financial",
+        "cik": "0001980666",   # Stellantis Financial Services, Inc. — 11 filings, latest 2026-03-20
+        "type": "auto",
+        "active": True,
+    },
+}
+
+ISSUERS.update(AUTO_ISSUERS)
+
 
 def get_all_ciks() -> dict[str, str]:
     """
