@@ -377,21 +377,35 @@ def fetch_filings_for_issuer(cik: str, issuer_key: str) -> list[dict]:
         logger.info("No filings data in submissions response for CIK %s", cik)
         return filings
 
-    accessions   = recent.get("accessionNumber", [])
-    form_types   = recent.get("form", [])
-    filed_dates  = recent.get("filingDate", [])
-    periods      = recent.get("reportDate", [])
+    accessions    = recent.get("accessionNumber", [])
+    form_types    = recent.get("form", [])
+    filed_dates   = recent.get("filingDate", [])
+    periods       = recent.get("reportDate", [])
+    primary_docs  = recent.get("primaryDocument", [])
+
+    def _build_exhibit_url(cik_raw: str, acc: str, primary_doc: str) -> Optional[str]:
+        """Construct exhibit URL directly from submissions API data — no index fetch needed."""
+        if not primary_doc:
+            return None
+        cik_int = str(int(cik_raw.lstrip("0") or "0"))
+        acc_path = acc.replace("-", "")
+        return (
+            f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_path}/{primary_doc}"
+        )
 
     for i, form_type in enumerate(form_types):
         if "ABS-15G" not in (form_type or "").upper():
             continue
 
+        acc         = accessions[i]  if i < len(accessions)   else ""
+        primary_doc = primary_docs[i] if i < len(primary_docs) else ""
         filings.append(
             {
-                "accession_no":     accessions[i] if i < len(accessions) else "",
+                "accession_no":     acc,
                 "form_type":        form_type,
                 "filed_date":       filed_dates[i] if i < len(filed_dates) else "",
                 "period_of_report": periods[i]     if i < len(periods)     else "",
+                "exhibit_url":      _build_exhibit_url(cik, acc, primary_doc),
             }
         )
 
@@ -408,18 +422,22 @@ def fetch_filings_for_issuer(cik: str, issuer_key: str) -> list[dict]:
             logger.warning("Could not fetch paginated filings file %s: %s", extra_url, exc)
             continue
 
+        extra_primary_docs = extra_data.get("primaryDocument", [])
         for i, form_type in enumerate(extra_data.get("form", [])):
             if "ABS-15G" not in (form_type or "").upper():
                 continue
             acc_list  = extra_data.get("accessionNumber", [])
             fd_list   = extra_data.get("filingDate", [])
             per_list  = extra_data.get("reportDate", [])
+            acc       = acc_list[i] if i < len(acc_list) else ""
+            pdoc      = extra_primary_docs[i] if i < len(extra_primary_docs) else ""
             filings.append(
                 {
-                    "accession_no":     acc_list[i]  if i < len(acc_list)  else "",
+                    "accession_no":     acc,
                     "form_type":        form_type,
-                    "filed_date":       fd_list[i]   if i < len(fd_list)   else "",
-                    "period_of_report": per_list[i]  if i < len(per_list)  else "",
+                    "filed_date":       fd_list[i]  if i < len(fd_list)  else "",
+                    "period_of_report": per_list[i] if i < len(per_list) else "",
+                    "exhibit_url":      _build_exhibit_url(cik, acc, pdoc),
                 }
             )
 
@@ -487,7 +505,41 @@ def check_for_new_filings() -> dict:
                     continue
 
                 if _filing_exists(conn, accession_no):
-                    logger.debug("Already stored: %s", accession_no)
+                    # Re-try exhibit parsing if stored with no exhibit_url and one is now available
+                    row = conn.execute(
+                        "SELECT id, exhibit_url FROM filings WHERE accession_no = ?",
+                        (accession_no,),
+                    ).fetchone()
+                    pre_url = filing.get("exhibit_url")
+                    if row and not row["exhibit_url"] and pre_url:
+                        logger.info("Re-trying exhibit parse for %s", accession_no)
+                        try:
+                            aup_data = extract_aup_data(pre_url)
+                            procs = (aup_data or {}).get("procedures", [])
+                            conn.execute(
+                                "UPDATE filings SET exhibit_url=?, aup_provider=?, report_date=?, raw_text=?, parse_error=? WHERE id=?",
+                                (pre_url, aup_data.get("aup_provider"), aup_data.get("report_date"),
+                                 aup_data.get("raw_text"), aup_data.get("error"), row["id"]),
+                            )
+                            for proc in procs:
+                                conn.execute(
+                                    """INSERT INTO procedures
+                                       (filing_id, procedure_number, description, pool_size,
+                                        sample_size, exception_count, exception_rate, findings_json, raw_text)
+                                       VALUES (?,?,?,?,?,?,?,?,?)""",
+                                    (row["id"], proc.get("procedure_number"), proc.get("description"),
+                                     proc.get("pool_size"), proc.get("sample_size"),
+                                     proc.get("exception_count"), proc.get("exception_rate"),
+                                     json.dumps(proc.get("findings", [])), proc.get("raw_text")),
+                                )
+                            conn.commit()
+                            logger.info("Updated %s with %d procedures", accession_no, len(procs))
+                            if procs:
+                                summary["new_filings"] += 1
+                        except Exception as exc:
+                            logger.warning("Re-try parse failed for %s: %s", accession_no, exc)
+                    else:
+                        logger.debug("Already stored: %s", accession_no)
                     continue
 
                 logger.info(
@@ -495,8 +547,8 @@ def check_for_new_filings() -> dict:
                     issuer_key, accession_no, filing["filed_date"],
                 )
 
-                # Locate Exhibit 99.1
-                exhibit_url = _find_exhibit_url(cik, accession_no)
+                # Prefer URL pre-built from submissions API; fall back to index scrape
+                exhibit_url = filing.get("exhibit_url") or _find_exhibit_url(cik, accession_no)
                 aup_data: Optional[dict] = None
 
                 if exhibit_url:
