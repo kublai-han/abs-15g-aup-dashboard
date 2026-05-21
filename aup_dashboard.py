@@ -831,6 +831,15 @@ _FINDING_NOISE = {"findings", "exception", "exception description", "finding",
                   "findings set forth on appendix b", "findings based on the procedures performed",
                   "exception description number", "findings based", "no exceptions noted"}
 
+# SEC cover-form section headers that contain "finding" but are NOT AUP findings
+_COVER_FORM_FINDING_RE = re.compile(
+    r"findings?\s+and\s+conclusions?\s+of\s+(third[- ]party|a\s+third)"
+    r"|due\s+diligence\s+report(s)?\s+obtained\s+by"
+    r"|findings?\s+are\s+as\s+follows\s*:?\s*$"
+    r"|exception\s+list\s*$",
+    re.IGNORECASE,
+)
+
 # Phrases that indicate clean/no-exception outcome — not real findings
 _FINDING_AGREEMENT_RE = re.compile(
     r"found\s+to\s+be\s+in\s+agreement|in\s+agreement\s+with|no\s+exception",
@@ -872,6 +881,9 @@ def _fmt_finding(raw) -> str:
             continue
         # Skip "found to be in agreement" / "no exception" — these are clean confirmations
         if _FINDING_AGREEMENT_RE.search(s):
+            continue
+        # Skip SEC cover-form section headers (e.g. "Findings and Conclusions of Third-Party...")
+        if _COVER_FORM_FINDING_RE.search(s):
             continue
         if s not in seen:
             seen.add(s)

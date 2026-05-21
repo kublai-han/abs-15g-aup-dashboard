@@ -256,6 +256,13 @@ def _insert_filing(
     )
     filing_id = cur.lastrowid
 
+    # Ensure fields_count column exists (idempotent migration)
+    try:
+        conn.execute("ALTER TABLE procedures ADD COLUMN fields_count INTEGER")
+        conn.commit()
+    except Exception:
+        pass
+
     procedures = (aup_data or {}).get("procedures", [])
     for proc in procedures:
         conn.execute(
@@ -263,8 +270,8 @@ def _insert_filing(
             INSERT INTO procedures
                 (filing_id, procedure_number, description, pool_size,
                  sample_size, exception_count, exception_rate,
-                 findings_json, raw_text)
-            VALUES (?,?,?,?,?,?,?,?,?)
+                 findings_json, raw_text, fields_count)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 filing_id,
@@ -276,6 +283,7 @@ def _insert_filing(
                 proc.get("exception_rate"),
                 json.dumps(proc.get("findings", [])),
                 proc.get("raw_text"),
+                proc.get("fields_count"),
             ),
         )
 
@@ -386,12 +394,22 @@ _KNOWN_AUDIT_FIRMS = (
 )
 
 
-def _is_bad_parse(aup_provider: Optional[str]) -> bool:
+def _is_bad_parse(
+    aup_provider: Optional[str], exhibit_url: Optional[str] = None
+) -> bool:
     """
-    Return True if the stored aup_provider looks wrong — either a cover-form
-    artifact or a non-audit entity name captured by the generic LLP/LLC pattern.
-    Returns False for None/empty (which means no firm found, which is valid for
-    15Ga-1 filings that have no AUP).
+    Return True if the stored parse looks wrong — either a cover-form artifact
+    or a non-audit entity name captured by the generic LLP/LLC pattern.
+
+    Returns False for None/empty provider (means no firm found, which is valid
+    for 15Ga-1 filings that have no AUP).
+
+    Cases detected as bad:
+    1. Provider contains cover-form boilerplate (e.g. "number of securitizer")
+    2. Provider is non-empty but not a known accounting firm
+    3. Provider is a known firm BUT the exhibit_url points to the ABS-15G
+       cover form itself (filename contains 'abs15g') — these filings only
+       mention the auditor in passing and contain no actual AUP data
     """
     p = (aup_provider or "").lower()
     if not p:
@@ -400,7 +418,15 @@ def _is_bad_parse(aup_provider: Optional[str]) -> bool:
     if any(m in p for m in _BAD_PROVIDER_MARKERS):
         return True
     # Non-empty provider that doesn't match any known accounting firm = bad parse
-    return not any(firm in p for firm in _KNOWN_AUDIT_FIRMS)
+    if not any(firm in p for firm in _KNOWN_AUDIT_FIRMS):
+        return True
+    # Known firm but exhibit_url is the ABS-15G cover form — the auditor name is
+    # only referenced in passing on the cover; the real AUP is in Exhibit 99.1
+    if exhibit_url:
+        filename = exhibit_url.rsplit("/", 1)[-1].lower()
+        if "abs15g" in filename or "abs-15g" in filename:
+            return True
+    return False
 
 
 def _find_ex99_1_url(cik: str, accession_no: str) -> Optional[str]:
@@ -426,7 +452,10 @@ def _find_ex99_1_url(cik: str, accession_no: str) -> Optional[str]:
             filename = doc_id.split(":", 1)[-1] if ":" in doc_id else ""
             # Exhibit 99.1 is the non-cover document: description contains 99.1
             # or filename contains ex99, and it is NOT sequence 1 (the cover form)
-            if filename and ("99.1" in desc or "EX-99" in filename.upper()) and seq != 1:
+            if filename and (
+                "99.1" in desc
+                or re.search(r"ex[-_]?99", filename, re.IGNORECASE)
+            ) and seq != 1:
                 return base + filename
         # Fallback: return seq=2 document if it looks like an exhibit
         for hit in hits:
@@ -688,7 +717,8 @@ def check_for_new_filings() -> dict:
                         (accession_no,),
                     ).fetchone()
                     needs_retry = row and (
-                        not row["exhibit_url"] or _is_bad_parse(row["aup_provider"])
+                        not row["exhibit_url"]
+                        or _is_bad_parse(row["aup_provider"], row["exhibit_url"])
                     )
                     if needs_retry:
                         logger.info("Re-parsing %s (bad or missing exhibit)", accession_no)
@@ -717,12 +747,14 @@ def check_for_new_filings() -> dict:
                                     conn.execute(
                                         """INSERT INTO procedures
                                            (filing_id, procedure_number, description, pool_size,
-                                            sample_size, exception_count, exception_rate, findings_json, raw_text)
-                                           VALUES (?,?,?,?,?,?,?,?,?)""",
+                                            sample_size, exception_count, exception_rate,
+                                            findings_json, raw_text, fields_count)
+                                           VALUES (?,?,?,?,?,?,?,?,?,?)""",
                                         (row["id"], proc.get("procedure_number"), proc.get("description"),
                                          proc.get("pool_size"), proc.get("sample_size"),
                                          proc.get("exception_count"), proc.get("exception_rate"),
-                                         json.dumps(proc.get("findings", [])), proc.get("raw_text")),
+                                         json.dumps(proc.get("findings", [])), proc.get("raw_text"),
+                                         proc.get("fields_count")),
                                     )
                                 conn.commit()
                                 logger.info("Re-parsed %s -> %d procedures (provider=%s)",

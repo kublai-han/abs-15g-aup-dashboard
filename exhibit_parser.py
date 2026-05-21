@@ -220,9 +220,14 @@ def _extract_exception_info(text: str) -> dict:
                 pass
 
     # Collect finding sentences — exclude methodology/sampling descriptions
+    # and SEC cover-form section headers that mention "finding" but are not findings
     _METHODOLOGY_SKIP = re.compile(
         r"confidence\s+level|presuming|could\s+be\s+observed|attribute\s+sampling"
-        r"|error\s+rate\s+in\s+the\s+population|^\s*findings?\s*$",
+        r"|error\s+rate\s+in\s+the\s+population|^\s*findings?\s*$"
+        r"|findings?\s+and\s+conclusions?\s+of\s+(third[- ]party|a\s+third)"
+        r"|due\s+diligence\s+report(s)?\s+obtained\s+by"
+        r"|findings?\s+are\s+as\s+follows\s*:?\s*$"
+        r"|exception\s+list\s*$",
         re.IGNORECASE,
     )
     for m in _RE_EXCEPTION.finditer(text):
@@ -239,6 +244,83 @@ def _extract_exception_info(text: str) -> dict:
         "exception_rate": exception_rate,
         "findings": findings[:10],  # cap to avoid noise
     }
+
+
+def _extract_fields_count(text: str) -> Optional[int]:
+    """
+    Count the number of loan data attributes/fields being checked in an AUP.
+
+    Handles three formats:
+
+    1. Numbered characteristics (Santander style):
+       "Characteristics\n1. Origination date\n2. VIN\n...\n16. Payment to income"
+       → returns the highest numbered item (16)
+
+    2. Attribute table (CPS style):
+       "Attribute [newlines] Receivable File / Instructions\n[attr rows]"
+       → counts short lines that look like attribute names (not source-doc refs)
+
+    3. Explicit count in prose:
+       "we compared the following 9 attributes" → returns 9
+
+    Returns None if no structured field list is found.
+    """
+    # Method 1: Numbered characteristics (Santander/Westlake style)
+    # Header word "Characteristics" or "Data Fields" followed by "N. text" items
+    chars_header = re.search(
+        r"\b(?:Characteristics?|Data\s+Fields?|Specified\s+Attributes?)\b",
+        text, re.IGNORECASE,
+    )
+    if chars_header:
+        section = text[chars_header.end(): chars_header.end() + 4000]
+        # Find all "N. <word>" numbered items within the next ~4000 chars
+        nums = re.findall(r"\b(\d{1,2})\.\s+[A-Z][A-Za-z]", section)
+        if nums:
+            max_n = max(int(n) for n in nums)
+            if max_n >= 2:
+                return max_n
+
+    # Method 2: Attribute table with "Attribute ... Receivable File" header (CPS style)
+    attr_header = re.search(
+        r"\bAttribute\b.{0,300}?\bReceivable\s+File\b",
+        text, re.IGNORECASE | re.DOTALL,
+    )
+    if attr_header:
+        section = text[attr_header.end(): attr_header.end() + 3000]
+        lines = section.splitlines()
+        count = 0
+        _SOURCE_RE = re.compile(
+            r"Sale\s+Contract|Lending|Federal\s+Truth|Credit\s+Application"
+            r"|Instructions?|Receivable\s+File|Exhibit\s+[A-Z]|Document",
+            re.IGNORECASE,
+        )
+        for line in lines:
+            s = line.strip()
+            if not s or s in ("?",) or len(s) < 3:
+                continue
+            # Stop at lettered procedure sections (A. B. C.)
+            if re.match(r"^[A-D]\.\s", s):
+                break
+            # Stop at long procedural sentences (usually start with subject verbs)
+            if len(s) > 100:
+                continue
+            # Attribute names are short and NOT source-document references
+            if len(s) < 70 and not _SOURCE_RE.search(s):
+                count += 1
+        if count >= 2:
+            return count
+
+    # Method 3: Explicit numeric count in prose
+    m = re.search(
+        r"following\s+(\d+)\s+(?:attributes?|fields?|characteristics?|data\s+elements?)",
+        text, re.IGNORECASE,
+    )
+    if m:
+        n = int(m.group(1))
+        if n >= 2:
+            return n
+
+    return None
 
 
 def _split_into_procedures(text: str) -> list[dict]:
@@ -294,6 +376,7 @@ def _parse_procedure_block(block: dict) -> dict:
 
     sizes = _extract_pool_and_sample(raw)
     exc_info = _extract_exception_info(raw)
+    fields_count = _extract_fields_count(raw)
 
     return {
         "procedure_number": block["procedure_number"],
@@ -303,6 +386,7 @@ def _parse_procedure_block(block: dict) -> dict:
         "exception_count": exc_info["exception_count"],
         "exception_rate": exc_info["exception_rate"],
         "findings": exc_info["findings"],
+        "fields_count": fields_count,
         "raw_text": raw,
     }
 
