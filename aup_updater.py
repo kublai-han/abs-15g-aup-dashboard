@@ -448,13 +448,15 @@ _RE_DEAL_NAME = re.compile(
 )
 _RE_DEAL_NAME2 = re.compile(
     r"([A-Z][A-Za-z0-9 ]+"
-    r"(?:Auto|Credit Card|Automobile|Receivables?|Funding)"
-    r"[A-Za-z0-9 ]*(?:Trust|Series)\s*[\d]{4}-[A-Z0-9]+)",
+    r"(?:Auto|Credit Card|Automobile|Receivables?|Funding|Rental\s+Car)"
+    r"[A-Za-z0-9 ()\-,\.]*(?:Trust|Series)\s*[\d]{4}-[A-Z0-9]+)",
 )
-# Pattern for auto AUP letters: "notes issued by <Trust Name>"
+# Pattern for auto AUP letters: "notes/notes issued by / offering of <Trust Name>"
 _RE_DEAL_NAME3 = re.compile(
-    r"(?:issued\s+by|issuance\s+of[^.]{0,30}issued\s+by|notes\s+issued\s+by)\s+"
-    r"([A-Z][A-Za-z0-9 ,.\-]+(?:Trust|Series)\s*[\d]{4}-[A-Z0-9]+)",
+    r"(?:issued\s+by|issuance\s+of[^.]{0,30}issued\s+by|notes\s+issued\s+by"
+    r"|(?:proposed\s+)?offering\s+of)\s+"
+    r"([A-Z][A-Za-z0-9 ,()\-\.]+(?:Trust|Series|LLC)\s+Series\s*[\d]{4}-[A-Z0-9]+"
+    r"|[A-Za-z0-9 ,()\-\.]+(?:Trust|Series)\s*[\d]{4}-[A-Z0-9]+)",
     re.IGNORECASE,
 )
 

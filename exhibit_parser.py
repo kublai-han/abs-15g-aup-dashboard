@@ -63,10 +63,11 @@ _RE_EXCEPTION = re.compile(
 )
 
 # Pool / sample size
+# Note: negative lookahead (?!\s*%) ensures we don't capture "5%" in "population of 5% error rate"
 _RE_POOL_SIZE = re.compile(
     r"(?:pool\s+size|total\s+(?:pool|loans?|assets?|receivables?)|"
     r"(?:loan\s+data\s+file\s+)?contained|comprising|consisting\s+of|"
-    r"population\s+of|underlying\s+assets[^\d]{0,5})[^\d]{0,30}([\d,]+)",
+    r"population\s+of|underlying\s+assets[^\d]{0,5})[^\d]{0,30}([\d,]+)(?!\s*%)",
     re.IGNORECASE,
 )
 _RE_SAMPLE_SIZE = re.compile(
@@ -80,8 +81,11 @@ _RE_EXCEPTION_COUNT = re.compile(
     r"(?:(\d+)\s+exception|exception[s]?\s+(?:were\s+)?(?:noted|found|identified)[^\d]{0,10}(\d+))",
     re.IGNORECASE,
 )
+# Percentage exception rate: only used as fallback when count cannot be determined.
+# Exclude sampling-design language ("3% errors could be observed in the sample").
 _RE_EXCEPTION_RATE = re.compile(
-    r"([\d.]+)\s*%\s*(?:exception|error|discrepanc)",
+    r"([\d.]+)\s*%\s*(?:exception|error|discrepanc)"
+    r"(?!\s*(?:rate|could|presuming|observed|be\s+observed))",
     re.IGNORECASE,
 )
 
@@ -118,9 +122,14 @@ _RE_DATE_PATTERNS = [
     ),
 ]
 
-# "no exceptions were noted" / "we noted no exceptions"
+# Phrases that indicate zero exceptions / clean findings
 _RE_NO_EXCEPTIONS = re.compile(
-    r"no\s+exception[s]?\s+(?:were\s+)?noted|we\s+noted\s+no\s+exception",
+    r"no\s+exception[s]?\s+(?:were\s+)?noted"
+    r"|we\s+noted\s+no\s+exception"
+    r"|found\s+(?:all\s+)?(?:\w+\s+){0,5}(?:to\s+be\s+in\s+agreement|in\s+agreement)"
+    r"|were\s+found\s+to\s+be\s+in\s+agreement"
+    r"|(?:all\s+)?(?:characteristics?|attributes?|fields?)\s+(?:were\s+)?(?:found\s+)?in\s+agreement"
+    r"|(?:we\s+)?noted\s+no\s+(?:differences?|discrepanc|findings?)",
     re.IGNORECASE,
 )
 
@@ -199,19 +208,31 @@ def _extract_exception_info(text: str) -> dict:
         if raw:
             exception_count = int(raw)
 
-    # Exception rate
-    m = _RE_EXCEPTION_RATE.search(text)
-    if m:
-        try:
-            exception_rate = float(m.group(1))
-        except ValueError:
-            pass
+    # Exception rate — only use regex as fallback when count is completely unknown;
+    # if count was determined (even 0), the rate will be computed from count/sample later.
+    # Divide by 100 to convert from percentage to proportion (consistent with count/sample).
+    if exception_count is None:
+        m = _RE_EXCEPTION_RATE.search(text)
+        if m:
+            try:
+                exception_rate = float(m.group(1)) / 100.0
+            except ValueError:
+                pass
 
-    # Collect finding sentences
+    # Collect finding sentences — exclude methodology/sampling descriptions
+    _METHODOLOGY_SKIP = re.compile(
+        r"confidence\s+level|presuming|could\s+be\s+observed|attribute\s+sampling"
+        r"|error\s+rate\s+in\s+the\s+population|^\s*findings?\s*$",
+        re.IGNORECASE,
+    )
     for m in _RE_EXCEPTION.finditer(text):
         snippet = m.group(0).strip()
-        if snippet and snippet not in findings:
+        if snippet and snippet not in findings and not _METHODOLOGY_SKIP.search(snippet):
             findings.append(snippet)
+
+    # If no exceptions, make findings clear
+    if exception_count == 0 and not findings:
+        findings = ["No exceptions noted"]
 
     return {
         "exception_count": exception_count,
