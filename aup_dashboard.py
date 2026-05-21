@@ -16,6 +16,7 @@ Tabs
 from __future__ import annotations
 
 import importlib
+import re
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -828,7 +829,13 @@ def _no_data_banner() -> None:
 _FINDING_NOISE = {"findings", "exception", "exception description", "finding",
                   "findings set forth on appendix a", "findings set forth on appendix",
                   "findings set forth on appendix b", "findings based on the procedures performed",
-                  "exception description number"}
+                  "exception description number", "findings based", "no exceptions noted"}
+
+# Phrases that indicate clean/no-exception outcome — not real findings
+_FINDING_AGREEMENT_RE = re.compile(
+    r"found\s+to\s+be\s+in\s+agreement|in\s+agreement\s+with|no\s+exception",
+    re.IGNORECASE,
+)
 
 def _fmt_finding(raw) -> str:
     """Return a clean one-line finding summary from a raw findings_json value."""
@@ -837,11 +844,21 @@ def _fmt_finding(raw) -> str:
         return "—"
     if isinstance(raw, str):
         try:
-            items = json.loads(raw)
+            parsed = json.loads(raw)
         except Exception:
-            items = [raw]
+            parsed = [raw]
     else:
-        items = raw if isinstance(raw, list) else [str(raw)]
+        parsed = raw
+
+    # Normalise to a flat list of strings
+    if isinstance(parsed, dict):
+        # e.g. {"finding": "...", "characteristics_checked": [...]}
+        items = [str(v) for v in parsed.values() if isinstance(v, str)]
+    elif isinstance(parsed, list):
+        items = parsed
+    else:
+        items = [str(parsed)]
+
     seen: set = set()
     clean = []
     for item in items:
@@ -853,11 +870,14 @@ def _fmt_finding(raw) -> str:
             continue
         if _re.match(r'^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$', s):
             continue
+        # Skip "found to be in agreement" / "no exception" — these are clean confirmations
+        if _FINDING_AGREEMENT_RE.search(s):
+            continue
         if s not in seen:
             seen.add(s)
             clean.append(s)
     if not clean:
-        return "No exceptions noted"
+        return "—"
     return "; ".join(clean[:2])
 
 
@@ -1818,6 +1838,11 @@ with tab3:
             df_display["Findings"] = df_display["Findings"].apply(
                 lambda x: str(int(x)) if pd.notna(x) and x not in (None, "") else "—"
             )
+            # When exception_count is confirmed 0, Finding Details should be blank.
+            # The Findings column already shows "0" which confirms clean — no need
+            # for detail text that could be misread as an actual finding.
+            confirmed_clean = df_display["Findings"] == "0"
+            df_display.loc[confirmed_clean, "Finding Details"] = "—"
             # Don't show "No exceptions noted" when exception_count > 0 — the finding
             # text exists but was too short/noisy to survive the formatter's filters.
             misleading = (

@@ -460,6 +460,52 @@ _RE_DEAL_NAME3 = re.compile(
     re.IGNORECASE,
 )
 
+# Matches one full "Issuer Name Trust/LLC[, ]Series YYYY-Z" entry
+_RE_SINGLE_SERIES = re.compile(
+    r"[A-Z][A-Za-z0-9 ]+(?:Trust|LLC)[,\s]+(?:Series\s+)?\d{4}-[A-Z0-9]+",
+    re.IGNORECASE,
+)
+
+
+def _clean_deal_name(name: str) -> str:
+    """
+    Strip preamble text (e.g. 'The procedures were performed...by the') from a
+    captured deal name, and split multi-series concatenated names into a
+    semicolon-separated list.
+    """
+    name = name.strip().rstrip(",").strip()
+
+    # --- Step 1: strip common AUP preamble text captured before the trust name ---
+    # e.g. "The procedures were performed in connection with the potential issuance by the X"
+    preamble_m = re.match(r"^.*?\bby\s+the\s+(?=[A-Z])", name, re.IGNORECASE | re.DOTALL)
+    if preamble_m and preamble_m.end() < len(name):
+        candidate = name[preamble_m.end():]
+        if re.match(r"[A-Z][A-Za-z]", candidate):
+            name = candidate.strip()
+
+    # e.g. "the Notes by Ford Credit..." or "notes by ..."
+    name = re.sub(r"^(?:the\s+)?notes?\s+by\s+", "", name, flags=re.IGNORECASE).strip()
+
+    # --- Step 2: split multi-series concatenated names ---
+    # e.g. "Prestige Auto Receivables Trust, Series 2020-1, Prestige Auto Receivables
+    #       Trust, Series 2021-1, ..."
+    full_matches = _RE_SINGLE_SERIES.findall(name)
+    if len(full_matches) >= 2:
+        cleaned = [m.strip().rstrip(",") for m in full_matches]
+        # If the original name starts with "Series YYYY-Z" (issuer name cut off),
+        # reconstruct the first entry using the issuer name from subsequent matches.
+        if re.match(r"^Series\s+\d{4}-[A-Z0-9]+", name, re.IGNORECASE) and full_matches:
+            issuer_m = re.match(
+                r"([A-Z][A-Za-z0-9 ]+(?:Trust|LLC))", full_matches[0], re.IGNORECASE
+            )
+            first_series_m = re.match(r"Series\s+(\d{4}-[A-Z0-9]+)", name, re.IGNORECASE)
+            if issuer_m and first_series_m:
+                first = f"{issuer_m.group(1).strip()}, Series {first_series_m.group(1)}"
+                cleaned = [first] + cleaned
+        return "; ".join(cleaned)
+
+    return name
+
 
 def _extract_deal_name(text: str) -> Optional[str]:
     """Extract the trust / series name from an ABS-15G document (cover or exhibit)."""
@@ -471,7 +517,7 @@ def _extract_deal_name(text: str) -> Optional[str]:
     for pat in (_RE_DEAL_NAME3, _RE_DEAL_NAME, _RE_DEAL_NAME2):
         m = pat.search(text)
         if m:
-            return m.group(1).strip()
+            return _clean_deal_name(m.group(1))
     return None
 
 
