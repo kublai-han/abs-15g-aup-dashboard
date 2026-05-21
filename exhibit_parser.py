@@ -64,11 +64,14 @@ _RE_EXCEPTION = re.compile(
 
 # Pool / sample size
 _RE_POOL_SIZE = re.compile(
-    r"(?:pool\s+size|total\s+(?:pool|loans?|assets?|receivables?))[^\d]{0,20}([\d,]+)",
+    r"(?:pool\s+size|total\s+(?:pool|loans?|assets?|receivables?)|"
+    r"(?:loan\s+data\s+file\s+)?contained|comprising|consisting\s+of|"
+    r"population\s+of|underlying\s+assets[^\d]{0,5})[^\d]{0,30}([\d,]+)",
     re.IGNORECASE,
 )
 _RE_SAMPLE_SIZE = re.compile(
-    r"(?:sample\s+size|(?:we\s+)?(?:selected|tested|reviewed|examined))[^\d]{0,20}([\d,]+)",
+    r"(?:sample\s+size|(?:we\s+)?(?:selected|tested|reviewed|examined)"
+    r"(?:\s+a\s+(?:random\s+)?sample)?)[^\d]{0,60}([\d,]+)",
     re.IGNORECASE,
 )
 
@@ -85,7 +88,7 @@ _RE_EXCEPTION_RATE = re.compile(
 # Accounting firm / AUP provider
 _RE_FIRM_PATTERNS = [
     re.compile(r"(Deloitte[^,\n]{0,40})", re.IGNORECASE),
-    re.compile(r"(Ernst\s*&\s*Young[^,\n]{0,40}|EY\b[^,\n]{0,40})", re.IGNORECASE),
+    re.compile(r"(Ernst\s*&\s*Young[^,\n]{0,40}|\bEY\b[^,\n]{0,40})", re.IGNORECASE),
     re.compile(r"(KPMG[^,\n]{0,40})", re.IGNORECASE),
     re.compile(r"(PricewaterhouseCoopers[^,\n]{0,40}|PwC\b[^,\n]{0,40})", re.IGNORECASE),
     re.compile(r"(Grant\s+Thornton[^,\n]{0,40})", re.IGNORECASE),
@@ -94,8 +97,11 @@ _RE_FIRM_PATTERNS = [
     re.compile(r"(Moss\s+Adams[^,\n]{0,40})", re.IGNORECASE),
     re.compile(r"(Crowe[^,\n]{0,40})", re.IGNORECASE),
     re.compile(r"(Cohen\s*&\s*Company[^,\n]{0,40})", re.IGNORECASE),
-    # Generic CPA / LLP / LLC patterns as fallback
-    re.compile(r"([A-Z][A-Za-z\s&,]+(?:LLP|LLC|PC|P\.C\.|P\.A\.))", re.IGNORECASE),
+    # Generic CPA / LLP / LLC pattern as last-resort fallback (requires audit-context keywords)
+    re.compile(
+        r"(?:signed\s+by|pursuant\s+to|/s/\s*)([A-Z][A-Za-z\s&,]+(?:LLP|LLC|PC|P\.C\.|P\.A\.))",
+        re.IGNORECASE,
+    ),
 ]
 
 # Report date patterns
@@ -132,11 +138,24 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
+_RE_FIRM_TRIM = re.compile(
+    r"\s+(?:has|is|was|have|were|should|not|be|been|being|"
+    r"in|the|a|an|of|to|for|and(?!\s+Company)|or|that|with|which|such|any|by|"
+    r"performing|conducted|engaged|agreed|selected|uses?|pursuant|report|does)\b.*",
+    re.IGNORECASE | re.DOTALL,
+)
+
 def _extract_firm_name(text: str) -> Optional[str]:
     for pattern in _RE_FIRM_PATTERNS:
         m = pattern.search(text)
         if m:
-            return m.group(1).strip()
+            raw = m.group(1).strip()
+            # Normalize internal whitespace (multi-line firm names like "GRANT\nTHORNTON LLP")
+            raw = re.sub(r"\s+", " ", raw).strip()
+            # Trim trailing boilerplate that got captured
+            trimmed = _RE_FIRM_TRIM.sub("", raw).strip()
+            # Keep trimmed only if it still looks like a firm name (has letters)
+            return trimmed if len(trimmed) >= 3 else raw
     return None
 
 
@@ -232,8 +251,25 @@ def _parse_procedure_block(block: dict) -> dict:
     raw = block["raw_text"]
     lines = [l.strip() for l in raw.splitlines() if l.strip()]
 
-    # First non-empty line after the header is treated as the description
-    description = lines[1] if len(lines) > 1 else (lines[0] if lines else "")
+    # First non-empty line after the header is treated as the description.
+    # For numbered procedures, skip any leading stand-alone digit (paragraph markers).
+    _SKIP_LINE = re.compile(
+        r"^\s*(?:ex-?\d+\.\d+|exhibit\s*\d+|[\w\-]+\.(htm|html|txt|pdf)"
+        r"|\d+\s*$|EX-99)\s*$",
+        re.IGNORECASE,
+    )
+    if block["procedure_number"] is None:
+        # Prose-format AUP: use first substantive line (>30 chars, not a filename/header) as description
+        description = next(
+            (l for l in lines if len(l) > 30 and not _SKIP_LINE.match(l)),
+            lines[0] if lines else "",
+        )
+    else:
+        candidate = lines[1] if len(lines) > 1 else (lines[0] if lines else "")
+        # Skip bare numbers or very short tokens that are pagination artifacts
+        if candidate and (candidate.isdigit() or len(candidate) < 5):
+            candidate = lines[2] if len(lines) > 2 else candidate
+        description = candidate
 
     sizes = _extract_pool_and_sample(raw)
     exc_info = _extract_exception_info(raw)

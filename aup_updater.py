@@ -19,6 +19,7 @@ User-Agent    : required by SEC – set via EDGAR_USER_AGENT env var or
 import json
 import logging
 import os
+import re
 import sqlite3
 import time
 from datetime import datetime, timezone
@@ -176,7 +177,9 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             aup_provider    TEXT,
             report_date     TEXT,
             raw_text        TEXT,
-            parse_error     TEXT
+            parse_error     TEXT,
+            deal_name       TEXT,
+            asset_type      TEXT
         );
 
         CREATE TABLE IF NOT EXISTS procedures (
@@ -217,8 +220,18 @@ def _insert_filing(
     period_of_report: str,
     exhibit_url: Optional[str],
     aup_data: Optional[dict],
+    deal_name: Optional[str] = None,
+    asset_type: Optional[str] = None,
 ) -> int:
     """Insert a filing row and its procedure rows; return the new filing id."""
+    # Ensure deal_name / asset_type columns exist (idempotent migrations)
+    for col, typ in (("deal_name", "TEXT"), ("asset_type", "TEXT")):
+        try:
+            conn.execute(f"ALTER TABLE filings ADD COLUMN {col} {typ}")
+            conn.commit()
+        except Exception:
+            pass  # column already exists
+
     fetched_at = datetime.now(timezone.utc).isoformat()
     raw_text = aup_data.get("raw_text", "") if aup_data else None
     aup_provider = aup_data.get("aup_provider") if aup_data else None
@@ -230,13 +243,15 @@ def _insert_filing(
         INSERT INTO filings
             (issuer_key, cik, accession_no, form_type, filed_date,
              period_of_report, exhibit_url, fetched_at,
-             aup_provider, report_date, raw_text, parse_error)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+             aup_provider, report_date, raw_text, parse_error,
+             deal_name, asset_type)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,
         (
             issuer_key, cik, accession_no, form_type, filed_date,
             period_of_report, exhibit_url, fetched_at,
             aup_provider, report_date, raw_text, parse_error,
+            deal_name, asset_type,
         ),
     )
     filing_id = cur.lastrowid
@@ -341,6 +356,120 @@ def _find_exhibit_url(cik: str, accession_no: str) -> Optional[str]:
     except Exception as exc:
         logger.warning("HTML index scrape failed: %s", exc)
 
+    return None
+
+
+# Markers that indicate a filing was parsed from the SEC cover form, not the AUP letter
+_BAD_PROVIDER_MARKERS = ("number of securitizer", "number of depositor", "number of")
+
+# Known legitimate accounting firms that issue AUP letters
+_KNOWN_AUDIT_FIRMS = (
+    "deloitte",
+    "ernst & young",
+    "ernst and young",
+    "ey us",
+    "ey llp",
+    "kpmg",
+    "pricewaterhousecoopers",
+    "pwc",
+    "grant thornton",
+    "bdo usa",
+    "bdo llp",
+    "rsm us",
+    "rsm llp",
+    "moss adams",
+    "crowe",
+    "cohen & company",
+    "cohen and company",
+    "withum",
+    "baker tilly",
+)
+
+
+def _is_bad_parse(aup_provider: Optional[str]) -> bool:
+    """
+    Return True if the stored aup_provider looks wrong — either a cover-form
+    artifact or a non-audit entity name captured by the generic LLP/LLC pattern.
+    Returns False for None/empty (which means no firm found, which is valid for
+    15Ga-1 filings that have no AUP).
+    """
+    p = (aup_provider or "").lower()
+    if not p:
+        return False  # None/empty = no firm detected (OK for non-AUP filings)
+    # Original cover-form boilerplate artifacts
+    if any(m in p for m in _BAD_PROVIDER_MARKERS):
+        return True
+    # Non-empty provider that doesn't match any known accounting firm = bad parse
+    return not any(firm in p for firm in _KNOWN_AUDIT_FIRMS)
+
+
+def _find_ex99_1_url(cik: str, accession_no: str) -> Optional[str]:
+    """
+    Query EDGAR EFTS full-text index to find the Exhibit 99.1 document URL
+    for an ABS-15G filing.  This is the actual AUP letter; the primary
+    document is merely a cover form that references it.
+    """
+    try:
+        search_url = (
+            f"https://efts.sec.gov/LATEST/search-index?q=%22{accession_no}%22"
+        )
+        resp = _edgar_get(search_url)
+        hits = resp.json().get("hits", {}).get("hits", [])
+        cik_int = str(int(cik.lstrip("0") or "0"))
+        acc_nodash = accession_no.replace("-", "")
+        base = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nodash}/"
+        for hit in hits:
+            doc_id   = hit.get("_id", "")            # "0001234-26-000001:filename.htm"
+            src      = hit.get("_source", {})
+            desc     = (src.get("file_description") or "").upper()
+            seq      = src.get("sequence", 99)
+            filename = doc_id.split(":", 1)[-1] if ":" in doc_id else ""
+            # Exhibit 99.1 is the non-cover document: description contains 99.1
+            # or filename contains ex99, and it is NOT sequence 1 (the cover form)
+            if filename and ("99.1" in desc or "EX-99" in filename.upper()) and seq != 1:
+                return base + filename
+        # Fallback: return seq=2 document if it looks like an exhibit
+        for hit in hits:
+            doc_id  = hit.get("_id", "")
+            src     = hit.get("_source", {})
+            seq     = src.get("sequence", 99)
+            filename = doc_id.split(":", 1)[-1] if ":" in doc_id else ""
+            if filename and seq == 2:
+                return base + filename
+    except Exception as exc:
+        logger.warning("EFTS Exhibit 99.1 lookup failed for %s: %s", accession_no, exc)
+    return None
+
+
+_RE_DEAL_NAME = re.compile(
+    r"(?:issuing entity|trust|series)[^\n]{0,5}[:\s]+"
+    r"([A-Z][A-Za-z0-9 ,.\-]+(?:Trust|Series|Notes?)\s*[\d-]+[A-Z0-9\-]*)",
+    re.IGNORECASE,
+)
+_RE_DEAL_NAME2 = re.compile(
+    r"([A-Z][A-Za-z0-9 ]+"
+    r"(?:Auto|Credit Card|Automobile|Receivables?|Funding)"
+    r"[A-Za-z0-9 ]*(?:Trust|Series)\s*[\d]{4}-[A-Z0-9]+)",
+)
+# Pattern for auto AUP letters: "notes issued by <Trust Name>"
+_RE_DEAL_NAME3 = re.compile(
+    r"(?:issued\s+by|issuance\s+of[^.]{0,30}issued\s+by|notes\s+issued\s+by)\s+"
+    r"([A-Z][A-Za-z0-9 ,.\-]+(?:Trust|Series)\s*[\d]{4}-[A-Z0-9]+)",
+    re.IGNORECASE,
+)
+
+
+def _extract_deal_name(text: str) -> Optional[str]:
+    """Extract the trust / series name from an ABS-15G document (cover or exhibit)."""
+    from bs4 import BeautifulSoup
+    if "<html" in text.lower():
+        text = BeautifulSoup(text, "html.parser").get_text(" ", strip=True)
+    # Collapse newlines / runs of whitespace so multi-line trust names are found
+    text = re.sub(r"\s+", " ", text)
+    for pat in (_RE_DEAL_NAME3, _RE_DEAL_NAME, _RE_DEAL_NAME2):
+        m = pat.search(text)
+        if m:
+            return m.group(1).strip()
     return None
 
 
@@ -505,39 +634,55 @@ def check_for_new_filings() -> dict:
                     continue
 
                 if _filing_exists(conn, accession_no):
-                    # Re-try exhibit parsing if stored with no exhibit_url and one is now available
+                    # Re-try if: (a) stored with no exhibit_url, or (b) bad parse from cover form
                     row = conn.execute(
-                        "SELECT id, exhibit_url FROM filings WHERE accession_no = ?",
+                        "SELECT id, exhibit_url, aup_provider FROM filings WHERE accession_no = ?",
                         (accession_no,),
                     ).fetchone()
-                    pre_url = filing.get("exhibit_url")
-                    if row and not row["exhibit_url"] and pre_url:
-                        logger.info("Re-trying exhibit parse for %s", accession_no)
+                    needs_retry = row and (
+                        not row["exhibit_url"] or _is_bad_parse(row["aup_provider"])
+                    )
+                    if needs_retry:
+                        logger.info("Re-parsing %s (bad or missing exhibit)", accession_no)
                         try:
-                            aup_data = extract_aup_data(pre_url)
-                            procs = (aup_data or {}).get("procedures", [])
-                            conn.execute(
-                                "UPDATE filings SET exhibit_url=?, aup_provider=?, report_date=?, raw_text=?, parse_error=? WHERE id=?",
-                                (pre_url, aup_data.get("aup_provider"), aup_data.get("report_date"),
-                                 aup_data.get("raw_text"), aup_data.get("error"), row["id"]),
-                            )
-                            for proc in procs:
-                                conn.execute(
-                                    """INSERT INTO procedures
-                                       (filing_id, procedure_number, description, pool_size,
-                                        sample_size, exception_count, exception_rate, findings_json, raw_text)
-                                       VALUES (?,?,?,?,?,?,?,?,?)""",
-                                    (row["id"], proc.get("procedure_number"), proc.get("description"),
-                                     proc.get("pool_size"), proc.get("sample_size"),
-                                     proc.get("exception_count"), proc.get("exception_rate"),
-                                     json.dumps(proc.get("findings", [])), proc.get("raw_text")),
+                            ex99_url = _find_ex99_1_url(cik, accession_no)
+                            retry_url = ex99_url or filing.get("exhibit_url") or row["exhibit_url"]
+                            if retry_url:
+                                aup_data = extract_aup_data(retry_url)
+                                procs = (aup_data or {}).get("procedures", [])
+                                # Try deal name from exhibit text first, then cover form
+                                deal_name = (
+                                    _extract_deal_name(aup_data.get("raw_text") or "")
+                                    or _extract_deal_name(filing.get("_cover_raw") or "")
                                 )
-                            conn.commit()
-                            logger.info("Updated %s with %d procedures", accession_no, len(procs))
-                            if procs:
-                                summary["new_filings"] += 1
+                                asset_type = issuer_info.get("type")
+                                conn.execute(
+                                    "UPDATE filings SET exhibit_url=?, aup_provider=?, report_date=?,"
+                                    " raw_text=?, parse_error=?, deal_name=COALESCE(deal_name,?),"
+                                    " asset_type=COALESCE(asset_type,?) WHERE id=?",
+                                    (retry_url, aup_data.get("aup_provider"), aup_data.get("report_date"),
+                                     aup_data.get("raw_text"), aup_data.get("error"), deal_name,
+                                     asset_type, row["id"]),
+                                )
+                                conn.execute("DELETE FROM procedures WHERE filing_id=?", (row["id"],))
+                                for proc in procs:
+                                    conn.execute(
+                                        """INSERT INTO procedures
+                                           (filing_id, procedure_number, description, pool_size,
+                                            sample_size, exception_count, exception_rate, findings_json, raw_text)
+                                           VALUES (?,?,?,?,?,?,?,?,?)""",
+                                        (row["id"], proc.get("procedure_number"), proc.get("description"),
+                                         proc.get("pool_size"), proc.get("sample_size"),
+                                         proc.get("exception_count"), proc.get("exception_rate"),
+                                         json.dumps(proc.get("findings", [])), proc.get("raw_text")),
+                                    )
+                                conn.commit()
+                                logger.info("Re-parsed %s -> %d procedures (provider=%s)",
+                                            accession_no, len(procs), aup_data.get("aup_provider"))
+                                if procs:
+                                    summary["new_filings"] += 1
                         except Exception as exc:
-                            logger.warning("Re-try parse failed for %s: %s", accession_no, exc)
+                            logger.warning("Re-parse failed for %s: %s", accession_no, exc)
                     else:
                         logger.debug("Already stored: %s", accession_no)
                     continue
@@ -547,8 +692,27 @@ def check_for_new_filings() -> dict:
                     issuer_key, accession_no, filing["filed_date"],
                 )
 
-                # Prefer URL pre-built from submissions API; fall back to index scrape
-                exhibit_url = filing.get("exhibit_url") or _find_exhibit_url(cik, accession_no)
+                # Always try Exhibit 99.1 first (real AUP letter); fall back to primary doc
+                exhibit_url = (
+                    _find_ex99_1_url(cik, accession_no)
+                    or filing.get("exhibit_url")
+                    or _find_exhibit_url(cik, accession_no)
+                )
+
+                # Fetch cover form to extract deal name (primary doc from submissions API)
+                cover_raw = ""
+                cover_url = filing.get("exhibit_url")
+                if cover_url and cover_url != exhibit_url:
+                    try:
+                        from exhibit_parser import fetch_exhibit
+                        cover_raw = fetch_exhibit(cover_url)
+                    except Exception:
+                        pass
+                # Deal name will also be checked from exhibit text after parsing
+                deal_name = _extract_deal_name(cover_raw)
+                issuer_info = ISSUERS.get(issuer_key, {})
+                asset_type  = issuer_info.get("type")
+
                 aup_data: Optional[dict] = None
 
                 if exhibit_url:
@@ -568,6 +732,10 @@ def check_for_new_filings() -> dict:
                         issuer_key, accession_no,
                     )
 
+                # Fall back to exhibit text for deal name if cover form didn't have it
+                if not deal_name and aup_data:
+                    deal_name = _extract_deal_name(aup_data.get("raw_text") or "")
+
                 # Store in DB regardless (so we don't reprocess on next run)
                 try:
                     filing_id = _insert_filing(
@@ -580,6 +748,8 @@ def check_for_new_filings() -> dict:
                         period_of_report=filing["period_of_report"],
                         exhibit_url=exhibit_url,
                         aup_data=aup_data,
+                        deal_name=deal_name,
+                        asset_type=asset_type,
                     )
                 except Exception as exc:
                     logger.error(
