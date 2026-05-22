@@ -79,7 +79,7 @@ NAV_STRUCTURE: dict[str, dict] = {
         "label": "Asset Backed Securities", "short": "ABS", "color": "#7b5ea7",
         "subs": [
             {"key": "auto",           "label": "Auto",           "issuer_type": "auto",          "has_data": True},
-            {"key": "credit_card",    "label": "Credit Card",    "issuer_type": "credit_card",   "has_data": True},
+            {"key": "credit_card",    "label": "Credit Card",    "issuer_type": "credit_card",   "has_data": False},
             {"key": "consumer_loans", "label": "Consumer Loans", "issuer_type": "consumer_loan", "has_data": True},
             {"key": "esoteric",       "label": "Esoteric",       "issuer_type": "esoteric",      "has_data": False},
             {"key": "equipment",      "label": "Equipment",      "issuer_type": "equipment",     "has_data": False},
@@ -160,23 +160,23 @@ ISSUER_COLOR_MAP: dict[str, str] = {
     "Prestige Financial Services":   "#c77dff",   # violet
     "Westlake Financial":            "#f4845f",   # orange
     "Stellantis Financial":          "#e63946",   # crimson
-    # Consumer loan
-    "Affirm":                        "#00b4d8",
-    "Upstart Network":               "#90e0ef",
-    "LendingClub Corporation":       "#0077b6",
-    "SoFi Technologies":             "#48cae4",
-    "Prosper Marketplace":           "#ade8f4",
-    "OneMain Financial":             "#023e8a",
-    "Avant":                         "#0096c7",
-    "Marlette Funding (Best Egg)":   "#0077b6",
-    "Lendmark Financial Services":   "#48cae4",
-    "GreenSky":                      "#90e0ef",
-    "Oportun":                       "#00b4d8",
-    "Pagaya Technologies":           "#0096c7",
-    "Achieve (Freedom Financial Networks)": "#023e8a",
-    "Funding Circle / Lendio":       "#ade8f4",
-    "Enova International":           "#0077b6",
-    "Baker Hill (Fintechs)":         "#48cae4",
+    # Consumer loan — spread across the full color wheel for legibility
+    "Affirm":                        "#ff9f43",   # orange
+    "Upstart Network":               "#c77dff",   # violet
+    "LendingClub Corporation":       "#26de81",   # bright green
+    "SoFi Technologies":             "#fd79a8",   # pink
+    "Prosper Marketplace":           "#fdcb6e",   # golden yellow
+    "OneMain Financial":             "#e17055",   # terra cotta
+    "Avant":                         "#00cec9",   # teal
+    "Marlette Funding (Best Egg)":   "#a29bfe",   # lavender
+    "Lendmark Financial Services":   "#55efc4",   # mint
+    "GreenSky":                      "#74b9ff",   # sky blue
+    "Oportun":                       "#fab1a0",   # peach
+    "Pagaya Technologies":           "#6c5ce7",   # indigo
+    "Achieve (Freedom Financial Networks)": "#ff7675",   # coral red
+    "Funding Circle / Lendio":       "#00b894",   # emerald
+    "Enova International":           "#ffeaa7",   # cream
+    "Baker Hill (Fintechs)":         "#b2bec3",   # light gray
 }
 
 # ---------------------------------------------------------------------------
@@ -1353,20 +1353,47 @@ elif _sub_info is None:
     st.stop()
 
 elif not _sub_info.get("has_data"):
-    # ── Coming Soon page ──────────────────────────────────────────────────
+    # ── Not-available page (Coming Soon or structural explanation) ─────────
     _c = _section["color"]
+    if nav_sub == "credit_card":
+        _hero_sub = "Asset Backed Securities — AUP Not Applicable"
+        _body_html = """
+          <div class="info-box">
+            <b>Why are there no AUP results for Credit Card ABS?</b><br><br>
+            Under SEC rules, sponsors of publicly-offered ABS are subject to two separate
+            reporting obligations on Form ABS-15G:<br><br>
+            <ul>
+              <li><b>Rule 15Ga-1</b> — Annual report of loan repurchase demands received and
+              fulfilled. Filed by all ABS securitizers including credit card issuers.</li>
+              <li><b>Rule 15Ga-2</b> — Agreed-Upon Procedures (AUP) certification, filed each
+              time a new deal is brought to market, accompanied by an independent auditor's
+              AUP letter as Exhibit 99.1. <em>This is the report this dashboard tracks.</em></li>
+            </ul>
+            Major credit card ABS issuers — including <b>American Express, Capital One, Discover,
+            JPMorgan Chase,</b> and <b>Synchrony</b> — operate <em>master trust</em> structures that
+            continuously issue new series without triggering individual 15Ga-2 filings. Their
+            ABS-15G submissions check the 15Ga-1 box only. As a result, no Exhibit 99.1 AUP
+            letter is filed with the SEC for these transactions, and there is no third-party
+            due diligence data to display.
+          </div>
+        """
+    else:
+        _hero_sub = f"{_section['label']} — Coverage Coming Soon"
+        _body_html = f"""
+          <div class="info-box">
+            AUP procedure data for <b>{_sub_info["label"]}</b> is not yet available.
+            Coverage will be added as SEC ABS-15G filers are onboarded for this asset class.
+          </div>
+        """
     st.markdown(
         f"""
         <div class="finsight-content"><div class="page-wrapper">
           <div class="section-hero">
             <div class="section-hero-badge" style="background:{_c}22;color:{_c};border:1px solid {_c}55;">{_section["short"]}</div>
             <div class="section-hero-title">{_sub_info["label"]}</div>
-            <div class="section-hero-sub">{_section["label"]} — Coverage Coming Soon</div>
+            <div class="section-hero-sub">{_hero_sub}</div>
           </div>
-          <div class="info-box">
-            AUP procedure data for <b>{_sub_info["label"]}</b> is not yet available.
-            Coverage will be added as SEC ABS-15G filers are onboarded for this asset class.
-          </div>
+          {_body_html}
         </div></div>
         """,
         unsafe_allow_html=True,
