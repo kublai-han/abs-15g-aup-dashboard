@@ -906,7 +906,7 @@ def _fmt_finding(raw) -> str:
         low = s.lower()
         if low in _FINDING_NOISE:
             continue
-        if len(s) < 15:
+        if len(s) < 4:
             continue
         if _re.match(r'^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$', s):
             continue
@@ -919,9 +919,29 @@ def _fmt_finding(raw) -> str:
         if s not in seen:
             seen.add(s)
             clean.append(s)
+
+    # De-duplicate: drop bare field names that are already embedded in a longer
+    # "N difference(s) in <field>" entry (Ally AUP format produces both forms).
+    # Normalise whitespace (including non-breaking spaces \xa0) before comparing.
+    def _norm(x: str) -> str:
+        return _re.sub(r'[\s\xa0]+', ' ', x).lower().strip()
+
+    def _is_redundant(s: str, others: list) -> bool:
+        sl = _norm(s)
+        return any(sl in _norm(other) and _norm(other) != sl for other in others)
+
+    # Separate "N difference(s) in X" entries from bare field names
+    has_quantified = any(
+        _re.search(r'\b\d+\b|\bone\b|two\b|three\b|four\b|five\b|six\b|seven\b|eight\b|nine\b|ten\b',
+                   c, _re.IGNORECASE)
+        for c in clean
+    )
+    if has_quantified:
+        clean = [c for c in clean if not _is_redundant(c, clean)]
+
     if not clean:
         return "—"
-    return "; ".join(clean[:2])
+    return "; ".join(clean)
 
 
 def _fmt_date(date_str: Optional[str]) -> str:
