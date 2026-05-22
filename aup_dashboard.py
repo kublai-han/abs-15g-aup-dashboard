@@ -177,6 +177,7 @@ ISSUER_COLOR_MAP: dict[str, str] = {
     "Funding Circle / Lendio":       "#00b894",   # emerald
     "Enova International":           "#ffeaa7",   # cream
     "Baker Hill (Fintechs)":         "#b2bec3",   # light gray
+    "Regional Management":           "#fd9644",   # warm amber-orange
 }
 
 # ---------------------------------------------------------------------------

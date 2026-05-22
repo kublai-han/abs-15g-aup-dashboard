@@ -101,6 +101,16 @@ ISSUERS = {
         "type": "consumer_loan",
         "active": True,
     },
+    "regional_management": {
+        "name": "Regional Management",
+        "cik": "0001742262",  # Regional Management Receivables III, LLC (depositor entity, covers all trust series)
+        # Individual trust CIKs (one per deal, but depositor CIK captures all):
+        # 0001759722=2018-2, 0001790696=2019-1, 0001823105=2020-1, 0001842014=2021-1,
+        # 0001870673=2021-2, 0001907053=2022-1, 0001947611=2022-2B,
+        # 0002024556=2024-1, 0002043438=2024-2, 0002058355=2025-1, 0002089117=2025-2
+        "type": "consumer_loan",
+        "active": True,
+    },
 }
 
 
