@@ -1831,7 +1831,7 @@ with tab3:
                     "Max": "Max (%)",
                     "Count": "# of Deals",
                 })
-                .sort_values("Avg Exception Rate (%)", ascending=False)
+                .sort_values("Issuer")
             )
             # ── AUP Rating: computed before formatting so values are numeric ──
             def _aup_score(row):
