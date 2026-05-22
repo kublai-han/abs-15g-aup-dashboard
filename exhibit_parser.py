@@ -441,10 +441,17 @@ def fetch_exhibit(url: str) -> str:
 def _is_exception_table(headers: list[str]) -> bool:
     """Return True if this table looks like the exception description/findings table."""
     joined = " ".join(headers).lower()
-    return (
-        "exception" in joined
-        and ("description" in joined or "number" in joined or "finding" in joined)
-    )
+    individual = {h.lower().strip() for h in headers}
+    if "exception" not in joined:
+        return False
+    # Classic format: "Exception Description" / "Number of Exceptions" / "Finding" column
+    if "description" in joined or "number" in joined or "finding" in joined:
+        return True
+    # Ford/PwC format: standalone "Exception" column (headers like
+    # ["Sample Receivable", "Procedure", "Exception"])
+    if "exception" in individual:
+        return True
+    return False
 
 
 def _parse_html_tables(soup) -> dict:

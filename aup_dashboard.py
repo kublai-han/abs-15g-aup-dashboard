@@ -141,12 +141,43 @@ _SUBCAT_DESCS: dict[str, str] = {
     "covered": "Covered bonds and structured notes",
 }
 
-# Plotly dark palette for multi-issuer charts
+# Plotly dark palette for multi-issuer charts (fallback for unknown issuers)
 ISSUER_PALETTE = [
     "#7b5ea7", "#4f9cf9", "#00c896", "#ff6b6b", "#ffd166",
     "#06d6a0", "#ef476f", "#118ab2", "#a8dadc", "#457b9d",
     "#e63946",
 ]
+
+# Explicit per-issuer color map — guarantees Santander and Avis Budget (and others)
+# always get distinct, consistent colors regardless of sort order in the chart.
+ISSUER_COLOR_MAP: dict[str, str] = {
+    # Auto
+    "Santander Consumer USA":        "#4f9cf9",   # blue
+    "Avis Budget Group":             "#ff6b6b",   # coral-red  ← distinct from Santander
+    "Ford Credit":                   "#ffd166",   # amber
+    "Ally Financial":                "#06d6a0",   # teal-green
+    "Consumer Portfolio Services":   "#a8dadc",   # light-blue
+    "Prestige Financial Services":   "#c77dff",   # violet
+    "Westlake Financial":            "#f4845f",   # orange
+    "Stellantis Financial":          "#e63946",   # crimson
+    # Consumer loan
+    "Affirm":                        "#00b4d8",
+    "Upstart Network":               "#90e0ef",
+    "LendingClub Corporation":       "#0077b6",
+    "SoFi Technologies":             "#48cae4",
+    "Prosper Marketplace":           "#ade8f4",
+    "OneMain Financial":             "#023e8a",
+    "Avant":                         "#0096c7",
+    "Marlette Funding (Best Egg)":   "#0077b6",
+    "Lendmark Financial Services":   "#48cae4",
+    "GreenSky":                      "#90e0ef",
+    "Oportun":                       "#00b4d8",
+    "Pagaya Technologies":           "#0096c7",
+    "Achieve (Freedom Financial Networks)": "#023e8a",
+    "Funding Circle / Lendio":       "#ade8f4",
+    "Enova International":           "#0077b6",
+    "Baker Hill (Fintechs)":         "#48cae4",
+}
 
 # ---------------------------------------------------------------------------
 # Page configuration — must be first Streamlit call
@@ -1726,6 +1757,16 @@ with tab3:
                 df_trend_plot["filed_date"] = pd.to_datetime(df_trend_plot["filed_date"], errors="coerce")
                 df_trend_plot["exception_rate_pct"] = pd.to_numeric(df_trend_plot["exception_rate_pct"], errors="coerce").fillna(0.0)
                 df_trend_plot = df_trend_plot.dropna(subset=["filed_date"])
+                # Build color map: use ISSUER_COLOR_MAP for known issuers,
+                # fall back to palette colors for any unlisted ones.
+                _trend_issuers = df_trend_plot["Issuer"].unique().tolist()
+                _palette_iter = iter(
+                    [c for c in ISSUER_PALETTE if c not in ISSUER_COLOR_MAP.values()]
+                )
+                _trend_color_map = {
+                    iss: ISSUER_COLOR_MAP.get(iss, next(_palette_iter, "#cccccc"))
+                    for iss in _trend_issuers
+                }
                 fig_trend = px.line(
                     df_trend_plot,
                     x="filed_date",
@@ -1737,7 +1778,7 @@ with tab3:
                         "filed_date": "Filing Date",
                         "exception_rate_pct": "Avg Exception Rate (%)",
                     },
-                    color_discrete_sequence=ISSUER_PALETTE,
+                    color_discrete_map=_trend_color_map,
                 )
                 fig_trend.update_layout(**_dark_plotly_layout())
                 fig_trend.update_layout(
