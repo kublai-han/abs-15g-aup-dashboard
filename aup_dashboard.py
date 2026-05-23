@@ -1207,7 +1207,7 @@ st.markdown(f"""
   <div class="page-wrapper" style="display:flex;align-items:center;gap:1.25rem;width:100%;padding:0;">
     <div class="finsight-logo"><span class="finsight-logo-badge">AUP</span>AUP Monitor</div>
     <div class="header-spacer"></div>
-    <div class="finsight-updated-badge">Updated: {last_updated_str} · v2</div>
+    <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
   </div>
 </div>""", unsafe_allow_html=True)
 
