@@ -1716,6 +1716,7 @@ with tab3:
                 "lendingclub": "LendingClub Corporation",
                 "funding_circle": "Funding Circle / Lendio",
                 "marlette": "Marlette Funding (Best Egg)",
+                "regional_management": "Regional Management",
             })
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 
