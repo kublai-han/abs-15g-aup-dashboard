@@ -391,6 +391,8 @@ _KNOWN_AUDIT_FIRMS = (
     "cohen and company",
     "withum",
     "baker tilly",
+    # Protiviti — consulting firm (not licensed CPA firm) used for credit card AUP engagements
+    "protiviti",
 )
 
 

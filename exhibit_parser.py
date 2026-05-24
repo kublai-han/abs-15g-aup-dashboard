@@ -101,6 +101,8 @@ _RE_FIRM_PATTERNS = [
     re.compile(r"(Moss\s+Adams[^,\n]{0,40})", re.IGNORECASE),
     re.compile(r"(Crowe[^,\n]{0,40})", re.IGNORECASE),
     re.compile(r"(Cohen\s*&\s*Company[^,\n]{0,40})", re.IGNORECASE),
+    # Protiviti — consulting firm used by Mission Lane and others for CC AUP work
+    re.compile(r"(Protiviti\s+Inc\.?|Protiviti\b)", re.IGNORECASE),
     # Generic CPA / LLP / LLC pattern as last-resort fallback (requires audit-context keywords)
     re.compile(
         r"(?:signed\s+by|pursuant\s+to|/s/\s*)([A-Z][A-Za-z\s&,]+(?:LLP|LLC|PC|P\.C\.|P\.A\.))",
@@ -129,7 +131,20 @@ _RE_NO_EXCEPTIONS = re.compile(
     r"|found\s+(?:all\s+)?(?:\w+\s+){0,5}(?:to\s+be\s+in\s+agreement|in\s+agreement)"
     r"|were\s+found\s+to\s+be\s+in\s+agreement"
     r"|(?:all\s+)?(?:characteristics?|attributes?|fields?)\s+(?:were\s+)?(?:found\s+)?in\s+agreement"
-    r"|(?:we\s+)?noted\s+no\s+(?:differences?|discrepanc|findings?)",
+    r"|(?:we\s+)?noted\s+no\s+(?:differences?|discrepanc|findings?)"
+    # Protiviti / narrative style: "noting no differences" when all fields are clean
+    r"|noting\s+no\s+differences?"
+    # "No differences were noted for X" (partial match; full counting handled separately)
+    r"|no\s+differences?\s+(?:were\s+)?noted",
+    re.IGNORECASE,
+)
+
+# Narrative format: "noting no differences for X of (the) Y samples tested"
+# Used to count exceptions as Y - X when not all samples agree.
+# Also: "No differences were noted for X of the Y"
+_RE_NOTING_NO_DIFFS_PARTIAL = re.compile(
+    r"(?:noting\s+no\s+differences?\s+for|no\s+differences?\s+(?:were\s+)?noted\s+for)"
+    r"\s+([\d,]+)\s+of\s+(?:the\s+)?([\d,]+)",
     re.IGNORECASE,
 )
 
@@ -164,7 +179,10 @@ def _extract_firm_name(text: str) -> Optional[str]:
             # Trim trailing boilerplate that got captured
             trimmed = _RE_FIRM_TRIM.sub("", raw).strip()
             # Keep trimmed only if it still looks like a firm name (has letters)
-            return trimmed if len(trimmed) >= 3 else raw
+            result = trimmed if len(trimmed) >= 3 else raw
+            # Strip any trailing non-alphanumeric chars (curly parens, special chars from HTML)
+            result = re.sub(r"[^A-Za-z0-9.&,\s]+$", "", result).strip()
+            return result if result else raw
     return None
 
 
@@ -197,8 +215,25 @@ def _extract_exception_info(text: str) -> dict:
     exception_rate = None
     findings = []
 
-    # Check for explicit "no exceptions" first
-    if _RE_NO_EXCEPTIONS.search(text):
+    # ── Narrative format: "noting no differences for X of (the) Y" ─────────
+    # e.g. "noting no differences for 199 of the 200" → 1 exception
+    # Sum all such occurrences across the document.
+    partial_matches = list(_RE_NOTING_NO_DIFFS_PARTIAL.finditer(text))
+    if partial_matches:
+        total_partial_exceptions = 0
+        max_sample = 0
+        for pm in partial_matches:
+            agree = int(pm.group(1).replace(",", ""))
+            total_n = int(pm.group(2).replace(",", ""))
+            total_partial_exceptions += (total_n - agree)
+            if total_n > max_sample:
+                max_sample = total_n
+        exception_count = total_partial_exceptions
+        if max_sample > 0 and exception_count is not None:
+            exception_rate = exception_count / max_sample
+
+    # Check for explicit "no exceptions" first (only if narrative pattern didn't fire)
+    if exception_count is None and _RE_NO_EXCEPTIONS.search(text):
         exception_count = 0
 
     # Try to extract a count
@@ -227,7 +262,11 @@ def _extract_exception_info(text: str) -> dict:
         r"|findings?\s+and\s+conclusions?\s+of\s+(third[- ]party|a\s+third)"
         r"|due\s+diligence\s+report(s)?\s+obtained\s+by"
         r"|findings?\s+are\s+as\s+follows\s*:?\s*$"
-        r"|exception\s+list\s*$",
+        r"|exception\s+list\s*$"
+        # Protiviti / narrative disclaimer boilerplate
+        r"|findings\s+shall\s+in\s+any\s+way\s+constitute"
+        r"|errors?,\s+fraud|irregularities"
+        r"|findings?\s+for\s+any\s+other\s+factor",
         re.IGNORECASE,
     )
     for m in _RE_EXCEPTION.finditer(text):

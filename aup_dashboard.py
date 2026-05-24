@@ -79,7 +79,7 @@ NAV_STRUCTURE: dict[str, dict] = {
         "label": "Asset Backed Securities", "short": "ABS", "color": "#7b5ea7",
         "subs": [
             {"key": "auto",           "label": "Auto",           "issuer_type": "auto",          "has_data": True},
-            {"key": "credit_card",    "label": "Credit Card",    "issuer_type": "credit_card",   "has_data": False},
+            {"key": "credit_card",    "label": "Credit Card",    "issuer_type": "credit_card",   "has_data": True},
             {"key": "consumer_loans", "label": "Consumer Loans", "issuer_type": "consumer_loan", "has_data": True},
             {"key": "esoteric",       "label": "Esoteric",       "issuer_type": "esoteric",      "has_data": False},
             {"key": "equipment",      "label": "Equipment",      "issuer_type": "equipment",     "has_data": False},
@@ -178,6 +178,18 @@ ISSUER_COLOR_MAP: dict[str, str] = {
     "Enova International":           "#ffeaa7",   # cream
     "Baker Hill (Fintechs)":         "#b2bec3",   # light gray
     "Regional Management":           "#fd9644",   # warm amber-orange
+    # Credit card — spread across a distinct palette
+    "Mission Lane":                  "#0ea5e9",   # sky blue
+    "Mercury Financial":             "#8b5cf6",   # violet
+    "Continental Finance":           "#10b981",   # emerald
+    "NewDay Funding":                "#f59e0b",   # amber
+    "Genesis Financial Solutions":   "#ef4444",   # red
+    "Avant (Credit Card)":           "#06b6d4",   # cyan
+    "Access Financial Holdings":     "#84cc16",   # lime
+    "Imprint Payments":              "#f97316",   # orange
+    "Fair Square Financial":         "#ec4899",   # pink
+    "Prosper (Credit Card)":         "#14b8a6",   # teal
+    "CW Nexus Credit Card":          "#6366f1",   # indigo
 }
 
 # ---------------------------------------------------------------------------
@@ -867,6 +879,8 @@ _FINDING_NOISE = {"findings", "exception", "exceptions", "exception description"
                   # RSM-era fragments (means "no exceptions in our comparison/procedures")
                   "exception in our comparison:",
                   "exceptions in our",
+                  # Protiviti/narrative-style boilerplate
+                  "noting no differences",
                   }
 
 # SEC cover-form section headers that contain "finding" but are NOT AUP findings
@@ -893,7 +907,11 @@ _FINDING_AGREEMENT_RE = re.compile(
     # SoFi 2019-era: "differences less than the thresholds"
     r"|less\s+than\s+the\s+threshold"
     # RSM fragment: "exceptions in our procedures/comparison outlined above" (N=0)
-    r"|exception[s]?\s+in\s+our\s+(procedures|comparison)",
+    r"|exception[s]?\s+in\s+our\s+(procedures|comparison)"
+    # Protiviti / narrative-style: entire doc has "noting no differences" → clean
+    r"|noting\s+no\s+differences?"
+    # "No differences were noted" (clean finding)
+    r"|no\s+differences?\s+(?:were\s+)?noted",
     re.IGNORECASE,
 )
 
@@ -1736,6 +1754,18 @@ with tab3:
                 "funding_circle": "Funding Circle / Lendio",
                 "marlette": "Marlette Funding (Best Egg)",
                 "regional_management": "Regional Management",
+                # Credit card discrete-deal issuers
+                "mission_lane": "Mission Lane",
+                "mercury_financial": "Mercury Financial",
+                "continental_finance": "Continental Finance",
+                "newday_funding": "NewDay Funding",
+                "genesis_financial": "Genesis Financial Solutions",
+                "avant_card": "Avant (Credit Card)",
+                "access_financial": "Access Financial Holdings",
+                "imprint_payments": "Imprint Payments",
+                "fair_square": "Fair Square Financial",
+                "prosper_card": "Prosper (Credit Card)",
+                "cw_nexus": "CW Nexus Credit Card",
             })
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 

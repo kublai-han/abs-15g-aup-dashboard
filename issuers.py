@@ -115,48 +115,84 @@ ISSUERS = {
 
 
 
+# ---------------------------------------------------------------------------
+# Credit Card ABS issuers — discrete-deal structures that file 15Ga-2 AUP reports
+#
+# NOTE: Major bank "master trust" issuers (Capital One, JPMorgan Chase, American
+# Express, Synchrony, Discover) operate revolving master trusts that issue new
+# series without triggering individual 15Ga-2 filings — they file only item 1.02
+# (annual repurchase demand reports) and have NO Exhibit 99.1 AUP letter.
+# Only the smaller issuers below use discrete deal structures subject to 15Ga-2.
+# ---------------------------------------------------------------------------
 CREDIT_CARD_ISSUERS = {
-    "capital_one": {
-        "name": "Capital One",
-        "cik": "0001162387",   # Capital One Funding, LLC — verified ABS-15G filer (last filed 2026-02-13)
+    "mission_lane": {
+        "name": "Mission Lane",
+        "cik": "0001844791",   # Mission Lane Transferor LLC — 51 ABS-15G filings (most active CC AUP filer)
         "type": "credit_card",
         "active": True,
     },
-    "jpmorgan_chase": {
-        "name": "JPMorgan Chase",
-        "cik": "0000869090",   # JPMorgan Chase Bank, N.A. — verified ABS-15G filer (last filed 2026-01-27)
+    "mercury_financial": {
+        "name": "Mercury Financial",
+        "cik": "0001848201",   # Mercury Financial Transferor LLC — 37 ABS-15G filings
         "type": "credit_card",
         "active": True,
     },
-    "american_express": {
-        "name": "American Express",
-        "cik": "0001283434",   # American Express Receivables Financing Corp III LLC — verified (last filed 2025-02-10)
+    "continental_finance": {
+        "name": "Continental Finance",
+        "cik": "0001833111",   # Continental Finance Credit Card ABS, LLC — 23 filings (newer shelf)
+        "ciks": ["0001833111", "0001688593"],  # also Continental Finance Company, LLC (older shelf, ~11 filings)
         "type": "credit_card",
         "active": True,
     },
-    "synchrony": {
-        "name": "Synchrony Financial",
-        "cik": "0001724786",   # Synchrony Card Funding, LLC — verified ABS-15G filer (last filed 2026-02-04)
+    "newday_funding": {
+        "name": "NewDay Funding",
+        "cik": "0001743948",   # NewDay Funding Transferor Ltd — 39 ABS-15G filings (UK subprime CC issuer)
+        "ciks": ["0001743948", "0001805748"],  # also NewDay Partnership Transferor PLC (~7 filings)
         "type": "credit_card",
         "active": True,
     },
-    "discover": {
-        "name": "Discover",
-        "cik": "0001645731",   # Discover Funding LLC — verified ABS-15G filer (last filed 2026-02-13)
+    "genesis_financial": {
+        "name": "Genesis Financial Solutions",
+        "cik": "0001759947",   # Genesis Sales Finance Transferor LLC — 10 ABS-15G filings
         "type": "credit_card",
         "active": True,
     },
-    "bank_of_america": {
-        "name": "Bank of America",
-        "cik": "0001370238",   # BA Credit Card Funding, LLC — last filed 2015 (program may be inactive)
+    "avant_card": {
+        "name": "Avant (Credit Card)",
+        "cik": "0001881673",   # Avant Credit Card Master Trust — 6 filings
+        "ciks": ["0001881673", "0002029130"],  # also Avant Depositor II LLC (~7 filings)
         "type": "credit_card",
-        "active": False,
+        "active": True,
     },
-    "barclays": {
-        "name": "Barclays",
-        "cik": "0001551964",   # Barclays Dryrock Funding LLC — last filed 2022
+    "access_financial": {
+        "name": "Access Financial Holdings",
+        "cik": "0001831952",   # Access Financial Holdings, LLC — 6 ABS-15G filings
         "type": "credit_card",
-        "active": False,
+        "active": True,
+    },
+    "imprint_payments": {
+        "name": "Imprint Payments",
+        "cik": "0001839975",   # Imprint Payments, Inc. — 4 ABS-15G filings
+        "type": "credit_card",
+        "active": True,
+    },
+    "fair_square": {
+        "name": "Fair Square Financial",
+        "cik": "0001800298",   # Fair Square Financial Transferor LLC — 3 ABS-15G filings
+        "type": "credit_card",
+        "active": True,
+    },
+    "prosper_card": {
+        "name": "Prosper (Credit Card)",
+        "cik": "0002041063",   # Prosper Credit Card 2024-1 Issuer LLC — 4 ABS-15G filings
+        "type": "credit_card",
+        "active": True,
+    },
+    "cw_nexus": {
+        "name": "CW Nexus Credit Card",
+        "cik": "0001827225",   # CW Nexus Credit Card Holdings I, LLC — 4 ABS-15G filings
+        "type": "credit_card",
+        "active": True,
     },
 }
 
