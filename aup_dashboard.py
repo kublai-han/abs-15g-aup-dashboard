@@ -858,10 +858,16 @@ def _no_data_banner() -> None:
     )
 
 
-_FINDING_NOISE = {"findings", "exception", "exception description", "finding",
+_FINDING_NOISE = {"findings", "exception", "exceptions", "exception description", "finding",
                   "findings set forth on appendix a", "findings set forth on appendix",
                   "findings set forth on appendix b", "findings based on the procedures performed",
-                  "exception description number", "findings based", "no exceptions noted"}
+                  "exception description number", "findings based", "no exceptions noted",
+                  # SoFi-era bare label with colon
+                  "findings:",
+                  # RSM-era fragments (means "no exceptions in our comparison/procedures")
+                  "exception in our comparison:",
+                  "exceptions in our",
+                  }
 
 # SEC cover-form section headers that contain "finding" but are NOT AUP findings
 _COVER_FORM_FINDING_RE = re.compile(
@@ -872,9 +878,22 @@ _COVER_FORM_FINDING_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Phrases that indicate clean/no-exception outcome — not real findings
+# Phrases that indicate clean/no-exception outcome — not real findings.
+# IMPORTANT: do NOT use broad "agreed upon threshold" here because real exception
+# descriptions like "did not agree...by more than the agreed upon threshold" would
+# be incorrectly filtered.  Use targeted sub-phrases instead.
 _FINDING_AGREEMENT_RE = re.compile(
-    r"found\s+to\s+be\s+in\s+agreement|in\s+agreement\s+with|no\s+exception",
+    r"found\s+to\s+be\s+in\s+agreement"
+    r"|in\s+agreement\s+with"
+    r"|no\s+exception"
+    # RSM-style: "exceptions that exceeded the agreed upon threshold" (extracted from "no exceptions...")
+    r"|exception[s]?\s+that\s+exceeded\s+the\s+agreed"
+    # RSM-style: "...within the agreed upon threshold" (within = below = no material exception)
+    r"|within\s+the\s+agreed\s+upon\s+threshold"
+    # SoFi 2019-era: "differences less than the thresholds"
+    r"|less\s+than\s+the\s+threshold"
+    # RSM fragment: "exceptions in our procedures/comparison outlined above" (N=0)
+    r"|exception[s]?\s+in\s+our\s+(procedures|comparison)",
     re.IGNORECASE,
 )
 
