@@ -450,20 +450,28 @@ def _find_ex99_1_url(cik: str, accession_no: str) -> Optional[str]:
             doc_id   = hit.get("_id", "")            # "0001234-26-000001:filename.htm"
             src      = hit.get("_source", {})
             desc     = (src.get("file_description") or "").upper()
-            seq      = src.get("sequence", 99)
+            # EDGAR EFTS returns sequence as int for seq=1 but as str "2","3"... for others
+            try:
+                seq = int(src.get("sequence", 99))
+            except (TypeError, ValueError):
+                seq = 99
             filename = doc_id.split(":", 1)[-1] if ":" in doc_id else ""
             # Exhibit 99.1 is the non-cover document: description contains 99.1
-            # or filename contains ex99, and it is NOT sequence 1 (the cover form)
+            # or filename contains ex99/exhibit99 (covers "exhibit99-1.htm" used by NewDay),
+            # and it is NOT sequence 1 (the cover form)
             if filename and (
                 "99.1" in desc
-                or re.search(r"ex[-_]?99", filename, re.IGNORECASE)
+                or re.search(r"ex[-_]?99|exhibit[-_]?99", filename, re.IGNORECASE)
             ) and seq != 1:
                 return base + filename
         # Fallback: return seq=2 document if it looks like an exhibit
         for hit in hits:
             doc_id  = hit.get("_id", "")
             src     = hit.get("_source", {})
-            seq     = src.get("sequence", 99)
+            try:
+                seq = int(src.get("sequence", 99))
+            except (TypeError, ValueError):
+                seq = 99
             filename = doc_id.split(":", 1)[-1] if ":" in doc_id else ""
             if filename and seq == 2:
                 return base + filename
@@ -497,6 +505,28 @@ _RE_SINGLE_SERIES = re.compile(
     re.IGNORECASE,
 )
 
+# NewDay / UK-style: "PROPOSED ISSUE BY <Entity PLC> OF SERIES YYYY-N"
+# or "proposed issue by <Entity> of Series YYYY-N"
+_RE_DEAL_NAME_PROPOSED = re.compile(
+    r"proposed\s+issue\s+(?:of[^.]{0,80}\s+)?by\s+"
+    r"([A-Z][A-Za-z0-9 \-]+(?:PLC|LLC|Trust|Issuer)\b[A-Za-z0-9 ,.\-]*?)"
+    r"\s+of\s+(?:the\s+)?[Ss]eries\s+(\d{4}-[A-Z0-9]+)",
+    re.IGNORECASE,
+)
+
+# ABS-15G cover form: trust name PRECEDES "(Exact name of issuing entity as specified in its charter)"
+# e.g. "Mission Lane Credit Card Master Trust (Exact name of issuing entity...)"
+# Compiled WITHOUT re.IGNORECASE so [A-Z][a-z]+ requires a properly capitalized first word,
+# preventing capture of preamble text that starts with lowercase words like "for the reporting...".
+_RE_DEAL_NAME_COVER = re.compile(
+    r"([A-Z][a-z]+(?:\s+[A-Za-z0-9]+){0,7}\s+"
+    r"(?:Master Trust|Master Issuer|Credit Card Trust|Funding Trust"
+    r"|Auto(?:mobile)? Trust|Receivables? Trust|Card Master Trust)"
+    r"(?:\s+(?:PLC|LLC|Ltd\.?))?)"
+    r"\s*\(?Exact name of (?:the )?[Ii]ssuing [Ee]ntity",
+    # No re.IGNORECASE — trust names are always Title Case on SEC cover forms
+)
+
 
 def _clean_deal_name(name: str) -> str:
     """
@@ -505,6 +535,17 @@ def _clean_deal_name(name: str) -> str:
     semicolon-separated list.
     """
     name = name.strip().rstrip(",").strip()
+
+    # Normalize ALL-CAPS words to title case (e.g. UK cover forms print entity names in caps)
+    # Only normalize words that are ALL-CAPS letters; leave mixed-case and numbers as-is.
+    _KEEP_UPPER = {"PLC", "LLC", "LLP", "UK", "US", "ABS", "REV"}
+    if any(w.isalpha() and w.isupper() and w not in _KEEP_UPPER for w in name.split()):
+        parts = name.split()
+        name = " ".join(
+            p if (p in _KEEP_UPPER or not (p.isalpha() and p.isupper()))
+            else p.capitalize()
+            for p in parts
+        )
 
     # --- Step 1: strip common AUP preamble text captured before the trust name ---
     # e.g. "The procedures were performed in connection with the potential issuance by the X"
@@ -545,10 +586,25 @@ def _extract_deal_name(text: str) -> Optional[str]:
         text = BeautifulSoup(text, "html.parser").get_text(" ", strip=True)
     # Collapse newlines / runs of whitespace so multi-line trust names are found
     text = re.sub(r"\s+", " ", text)
+
+    # NewDay "PROPOSED ISSUE BY <Entity> OF SERIES YYYY-N" (two capture groups)
+    m = _RE_DEAL_NAME_PROPOSED.search(text)
+    if m:
+        entity = m.group(1).strip().rstrip(",").strip()
+        series = m.group(2).strip()
+        return _clean_deal_name(f"{entity}, Series {series}")
+
+    # Standard patterns (single capture group)
     for pat in (_RE_DEAL_NAME3, _RE_DEAL_NAME, _RE_DEAL_NAME2):
         m = pat.search(text)
         if m:
             return _clean_deal_name(m.group(1))
+
+    # ABS-15G cover form: trust name precedes "(Exact name of issuing entity...)"
+    m = _RE_DEAL_NAME_COVER.search(text)
+    if m:
+        return _clean_deal_name(m.group(1))
+
     return None
 
 

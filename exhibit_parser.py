@@ -71,8 +71,21 @@ _RE_POOL_SIZE = re.compile(
     re.IGNORECASE,
 )
 _RE_SAMPLE_SIZE = re.compile(
-    r"(?:sample\s+size|(?:we\s+)?(?:selected|tested|reviewed|examined)"
-    r"(?:\s+a\s+(?:random\s+)?sample)?)[^\d]{0,60}([\d,]+)",
+    # "sample size [of] N" — use \b to avoid matching "sample sizes," (which captures a bare comma)
+    r"(?:sample\s+size\b[^\d]{0,20}"
+    # "we selected/tested/examined" WITH "sample" explicitly nearby (prevents false matches
+    # like "reviewed during the performance of services herein. 2")
+    r"|(?:we\s+)?(?:tested|reviewed|examined)\s+[a-z\s]{0,25}sample[a-z\s,]{0,20}"
+    # "selected" is more specific: "we selected N accounts" or "selected a sample of N"
+    r"|(?:we\s+)?selected\s+(?:a\s+(?:random\s+|judgmental[a-z]*\s+)?)?sample\s+of\s+"
+    r"|(?:we\s+)?selected\s+[^\d]{0,30}"
+    # Protiviti / narrative: "a judgmentally selected sample of N"
+    r"|(?:a\s+)?(?:judgmental[a-z]*\s+)?selected\s+sample\s+of\s+"
+    r"|randomly\s+selected\s+[^\d]{0,30}"
+    # UK/NewDay style: "A random sample of N" or "a sample of N"
+    r"|a\s+random\s+sample\s+of\s+"
+    r"|a\s+sample\s+of\s+(?=\d{2,})"   # "a sample of N" only if N>=10 (at least 2 digits)
+    r")(\d[\d,]*)",
     re.IGNORECASE,
 )
 
@@ -128,6 +141,7 @@ _RE_DATE_PATTERNS = [
 _RE_NO_EXCEPTIONS = re.compile(
     r"no\s+exception[s]?\s+(?:were\s+)?noted"
     r"|we\s+noted\s+no\s+exception"
+    r"|noted\s+no\s+exceptions?"  # "noted no exceptions" (Prosper/PwC format)
     r"|found\s+(?:all\s+)?(?:\w+\s+){0,5}(?:to\s+be\s+in\s+agreement|in\s+agreement)"
     r"|were\s+found\s+to\s+be\s+in\s+agreement"
     r"|(?:all\s+)?(?:characteristics?|attributes?|fields?)\s+(?:were\s+)?(?:found\s+)?in\s+agreement"
@@ -135,7 +149,14 @@ _RE_NO_EXCEPTIONS = re.compile(
     # Protiviti / narrative style: "noting no differences" when all fields are clean
     r"|noting\s+no\s+differences?"
     # "No differences were noted for X" (partial match; full counting handled separately)
-    r"|no\s+differences?\s+(?:were\s+)?noted",
+    r"|no\s+differences?\s+(?:were\s+)?noted"
+    # UK / NewDay format: "agreed to the System, with no exception"
+    r"|with\s+no\s+exception"
+    # Fair Square / PwC format: "noting no exceptions" (gerund, not past-tense noted)
+    r"|noting\s+no\s+exceptions?"
+    # EY / Continental format: "All such compared information was in agreement"
+    r"|(?:information|data|values?|fields?)\s+was\s+in\s+agreement"
+    r"|all\s+such\s+compared\s+information\s+was\s+in\s+agreement",
     re.IGNORECASE,
 )
 
@@ -145,6 +166,21 @@ _RE_NO_EXCEPTIONS = re.compile(
 _RE_NOTING_NO_DIFFS_PARTIAL = re.compile(
     r"(?:noting\s+no\s+differences?\s+for|no\s+differences?\s+(?:were\s+)?noted\s+for)"
     r"\s+([\d,]+)\s+of\s+(?:the\s+)?([\d,]+)",
+    re.IGNORECASE,
+)
+
+# Protiviti narrative exception descriptions. Two common formats:
+#   Format A: "Per Management, for sample #36, <explanation>."
+#             "Per Management, for two samples (#'s 33 and 111), <explanation>."
+#             "Per Management, the reason these samples <explanation>."
+#             "Per Management, <any explanation>."
+#   Format B: "For 5 samples (#s 4, 128, ...) <description>." (leads into "Per Management" next sentence)
+_RE_PROTIVITI_FINDING = re.compile(
+    r"(?:"
+    r"Per\s+Management\b[^.]{0,400}"       # Any "Per Management, ..." sentence
+    r"|For\s+\d+\s+samples?\s*\(?#s?"      # "For N samples (#s X, Y, ...) description"
+    r"[^.]{0,400}"
+    r")\.",
     re.IGNORECASE,
 )
 
@@ -165,7 +201,7 @@ def _clean_text(text: str) -> str:
 _RE_FIRM_TRIM = re.compile(
     r"\s+(?:has|is|was|have|were|should|not|be|been|being|"
     r"in|the|a|an|of|to|for|and(?!\s+Company)|or|that|with|which|such|any|by|"
-    r"performing|conducted|engaged|agreed|selected|uses?|pursuant|report|does)\b.*",
+    r"performing|conducted|engaged|agreed|selected|uses?|pursuant|report|does|dated)\b.*",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -254,6 +290,15 @@ def _extract_exception_info(text: str) -> dict:
             except ValueError:
                 pass
 
+    # ── Protiviti narrative: "Per Management, for sample #N, ..." ───────────
+    # Extract inline exception explanations as finding details.
+    protiviti_findings = [
+        m.group(0).strip()
+        for m in _RE_PROTIVITI_FINDING.finditer(text)
+    ]
+    if protiviti_findings:
+        findings.extend(protiviti_findings)
+
     # Collect finding sentences — exclude methodology/sampling descriptions
     # and SEC cover-form section headers that mention "finding" but are not findings
     _METHODOLOGY_SKIP = re.compile(
@@ -263,10 +308,34 @@ def _extract_exception_info(text: str) -> dict:
         r"|due\s+diligence\s+report(s)?\s+obtained\s+by"
         r"|findings?\s+are\s+as\s+follows\s*:?\s*$"
         r"|exception\s+list\s*$"
+        # Generic closing language ("report our findings based on the procedures")
+        r"|(?:report\s+our\s+)?findings\s+based\s+on\s+the\s+procedures"
+        r"|findings\s+(?:described|noted|set\s+forth)\s+(?:above|herein|below)"
         # Protiviti / narrative disclaimer boilerplate
         r"|findings\s+shall\s+in\s+any\s+way\s+constitute"
         r"|errors?,\s+fraud|irregularities"
-        r"|findings?\s+for\s+any\s+other\s+factor",
+        r"|findings?\s+for\s+any\s+other\s+factor"
+        # Grant Thornton / EY: "findings are as described herein" boilerplate
+        r"|findings?\s+are\s+as\s+described\s+herein"
+        # Grant Thornton: "discrepancies between the Database and the Source Documents"
+        r"|discrepancies\s+between\s+the\s+(?:Database|database)\s+and\s+the\s+Source"
+        # EY / Continental: "findings are included in Attachment" and "findings with respect to:"
+        r"|findings?\s+are\s+included\s+in\s+Attachment"
+        r"|findings?\s+with\s+respect\s+to\s*:"
+        # UK / NewDay confidence-interval boilerplate (not a finding — sampling methodology)
+        r"|errors?,?\s+within\s+a\s+total\s+population"
+        r"|errors?\s+within\s+the\s+total\s+population"
+        r"|sampling\s+confidence\s+(?:is|and)\s+(?:the\s+)?precision"
+        r"|precision\s+limit\s+is\s+the\s+estimated"
+        # Fair Square / PwC: generic exception-threshold definition
+        r"|exception\s+if\s+(?:there\s+was\s+a\s+difference|differences\s+are\s+greater)"
+        # UK/NewDay methodology boilerplate: "is termed an error", "error in the relevant attribute"
+        r"|is\s+termed\s+an\s+error"
+        r"|^error\s+in\s+the\s+relevant\s+attribute"
+        r"|failure\s+of\s+a\s+single\s+attribute\s+is\s+termed"
+        r"|we\s+report\s+our\s+findings,\s+which\s+are\s+the\s+factual"
+        # Generic noise: bare "error" or "error." (not a finding sentence)
+        r"|^error\.?$",
         re.IGNORECASE,
     )
     for m in _RE_EXCEPTION.finditer(text):
@@ -274,9 +343,20 @@ def _extract_exception_info(text: str) -> dict:
         if snippet and snippet not in findings and not _METHODOLOGY_SKIP.search(snippet):
             findings.append(snippet)
 
-    # If no exceptions, make findings clear
-    if exception_count == 0 and not findings:
-        findings = ["No exceptions noted"]
+    # If no exceptions confirmed: keep only genuine positive confirmations (not noise)
+    if exception_count == 0:
+        # When zero exceptions are confirmed, any "error" / "exception" / "discrepancy"
+        # snippet is methodology boilerplate, not a real finding.  Strip them all and
+        # use the standard clean message.
+        real_findings = [
+            f for f in findings
+            if not re.search(
+                r"\berrors?\b|\bexceptions?\b|\bdiscrepanc|\bvarianc|\bfindings?\b",
+                f, re.IGNORECASE
+            )
+        ]
+        # Keep only non-noise confirmations; fall back to standard message
+        findings = real_findings if real_findings else ["No exceptions noted"]
 
     return {
         "exception_count": exception_count,
