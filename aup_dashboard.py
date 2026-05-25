@@ -1709,7 +1709,7 @@ with tab2:
                 "Filing Date": _fmt_date(r.get("filed_date")),
                 "Auditor": r.get("aup_provider") or "—",
                 "Pool Size": pool_str,
-                "Sample": r.get("sample_size") or "—",
+                "Sample": (str(int(float(s))) if (s := str(r.get("sample_size") or "")).strip() not in ("", "None", "nan", "0") else "—"),
                 "Fields": str(int(fields_raw)) if fields_raw is not None else "—",
                 "Findings": r.get("exception_count") if r.get("exception_count") is not None else "—",
                 "Finding %": exc_rate_str,
@@ -1982,6 +1982,9 @@ with tab3:
             )
             df_display["Pool Size"] = df_display["Pool Size"].apply(
                 lambda x: f"{int(float(x)):,}" if x is not None and str(x).strip() not in ("", "—", "None", "nan") else "—"
+            )
+            df_display["Sample"] = df_display["Sample"].apply(
+                lambda x: (str(int(float(x))) if str(x).strip() not in ("", "None", "nan", "0") and pd.notna(x) else "—")
             )
             df_display["Fields"] = df_display["Fields"].apply(
                 lambda x: str(int(x)) if pd.notna(x) and x not in (None, "") else "—"
