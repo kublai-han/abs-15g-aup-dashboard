@@ -152,6 +152,8 @@ _RE_NO_EXCEPTIONS = re.compile(
     r"|no\s+differences?\s+(?:were\s+)?noted"
     # UK / NewDay format: "agreed to the System, with no exception"
     r"|with\s+no\s+exception"
+    # CBIZ / Continental Finance 2025+: "without exception"
+    r"|without\s+exception"
     # Fair Square / PwC format: "noting no exceptions" (gerund, not past-tense noted)
     r"|noting\s+no\s+exceptions?"
     # EY / Continental format: "All such compared information was in agreement"

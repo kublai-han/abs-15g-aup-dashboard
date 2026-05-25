@@ -874,6 +874,31 @@ def check_for_new_filings() -> dict:
                 if not deal_name and aup_data:
                     deal_name = _extract_deal_name(aup_data.get("raw_text") or "")
 
+                # Skip 15Ga-1 annual certifications: these have no Exhibit 99.1
+                # and no AUP data; they're just annual compliance checkboxes.
+                # Detect by: exhibit_url is the ABS-15G cover form itself AND
+                # parsed result has no provider and no procedures with data.
+                _procs = (aup_data or {}).get("procedures", [])
+                _provider = (aup_data or {}).get("aup_provider")
+                _has_data = (
+                    _provider
+                    or any(
+                        p.get("exception_count") is not None or p.get("sample_size")
+                        for p in _procs
+                    )
+                )
+                _exhibit_fn = (exhibit_url or "").rsplit("/", 1)[-1].lower()
+                _is_cover_form = (
+                    "abs15g" in _exhibit_fn or "abs-15g" in _exhibit_fn
+                    or _exhibit_fn == "abs15g.htm"
+                )
+                if _is_cover_form and not _has_data:
+                    logger.info(
+                        "Skipping %s %s – appears to be a 15Ga-1 annual certification (no exhibit, no AUP data)",
+                        issuer_key, accession_no,
+                    )
+                    continue
+
                 # Store in DB regardless (so we don't reprocess on next run)
                 try:
                     filing_id = _insert_filing(
