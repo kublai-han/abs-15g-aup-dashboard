@@ -345,6 +345,9 @@ def _extract_exception_info(text: str) -> dict:
         if snippet and snippet not in findings and not _METHODOLOGY_SKIP.search(snippet):
             findings.append(snippet)
 
+    # Deduplicate: remove short label items that are substrings of longer descriptions
+    findings = _dedup_findings(findings)
+
     # If no exceptions confirmed: keep only genuine positive confirmations (not noise)
     if exception_count == 0:
         # When zero exceptions are confirmed, any "error" / "exception" / "discrepancy"
@@ -365,6 +368,134 @@ def _extract_exception_info(text: str) -> dict:
         "exception_rate": exception_rate,
         "findings": findings[:10],  # cap to avoid noise
     }
+
+
+def _dedup_findings(findings: list[str]) -> list[str]:
+    """
+    Remove finding items that are pure label duplicates of longer descriptive items.
+
+    Many audit exhibit tables contain both a verbose sentence column
+    ("One difference in annual percentage rate") and a bare field-name column
+    ("Annual percentage rate").  The parser sometimes captures both; this
+    function keeps only the longer/more-descriptive version.
+
+    Rules applied in order:
+      1. Drop exact duplicates (after whitespace normalisation, case-insensitive).
+      2. Drop an item if it is a case-insensitive substring of any other (longer) item
+         — the longer item already conveys the full information.
+    """
+    if not findings or len(findings) <= 1:
+        return list(findings)
+
+    # Normalise: collapse all whitespace (including &nbsp; \xa0) to single spaces
+    normed = [re.sub(r"\s+", " ", f).strip() for f in findings]
+    normed_lower = [n.lower() for n in normed]
+
+    keep_indices = []
+    seen: set[str] = set()
+
+    for i, item_lower in enumerate(normed_lower):
+        if item_lower in seen:          # exact duplicate
+            continue
+        # Is this item fully contained inside any other (longer) item?
+        subsumed = any(
+            item_lower in normed_lower[j] and len(normed[i]) < len(normed[j])
+            for j in range(len(normed_lower)) if j != i
+        )
+        if not subsumed:
+            keep_indices.append(i)
+            seen.add(item_lower)
+
+    return [findings[i] for i in keep_indices]
+
+
+# NewDay / UK-format section header: "2.6 Purchase Interest Rate (retail APR)"
+_RE_NEWDAY_SECTION = re.compile(
+    r"(?:^|\n)\s*(2\.(?:\d+\.)*\d+)\s+"    # section number like "2.6" or "2.1.1"
+    r"([A-Z][A-Za-z0-9 /()%&'-]{3,70}?)"   # section title
+    r"\s*(?:\d+\s+)?(?=For|We\b|In\b|A\b)", # followed by page-# then prose
+    re.MULTILINE,
+)
+_RE_NEWDAY_EXCEPT = re.compile(r"except\s+for\s+\d+\s+case", re.IGNORECASE)
+# Each exception-table entry: reference on its own line + finding on next line.
+# Handles "DT095" (newer) and plain "95" or "1" (older) Deloitte references.
+_RE_NEWDAY_DT_ENTRY = re.compile(
+    r"\n\s*(?:DT)?\d+\s*\n"              # reference alone on a line  (DT095, 95, or 1)
+    r"\s*(Sample\s+Pool\s*[=:].+?)"      # finding text   (group 1)
+    r"(?=\s*\n\s*(?:DT)?\d+\s*\n"       # terminated by: another reference entry
+    r"|\s+As\s+a\s+result"              #   or: "As a result" boilerplate
+    r"|\Z)",                             #   or: end of string
+    re.IGNORECASE | re.DOTALL,
+)
+# Fallback: match "Sample Pool = 54.9; System = 49.9" anywhere in section body.
+# Uses [\d.]+ / [\d.%]+ to handle decimal and percentage values.
+_RE_NEWDAY_SP_SIMPLE = re.compile(
+    r"(Sample\s+Pool\s*[=:]\s*[\d.]+[^;]{0,10};\s*[Ss]ystem\s*[=:]\s*[\d.%]+)",
+    re.IGNORECASE,
+)
+# Trailing page-number / artifact: " 4", " 214", " DT214" etc. after the value
+_RE_TRAILING_ARTIFACT = re.compile(r"\s+(?:DT)?\d+\s*$")
+
+
+def _parse_newday_labeled(html_content: str) -> list[str]:
+    """
+    Parse a NewDay / UK-format AUP HTML exhibit section by section.
+
+    Returns a list of findings labelled with their section attribute name, e.g.
+      ["Purchase Interest Rate: Sample Pool = 54.9; System = 49.9",
+       "Cash APR: Sample Pool = 64.9; System = 59.9"]
+
+    Handles multiple DT reference entries within the same section (when one
+    attribute has several exception loans).
+
+    Returns an empty list if the document does not match the expected format.
+    """
+    try:
+        BeautifulSoup = _import_bs4()
+        soup = BeautifulSoup(html_content, "html.parser")
+        text = soup.get_text("\n")                      # preserve newlines for section detection
+        text = re.sub(r"[ \t]+", " ", text)             # normalise horizontal whitespace only
+        text = re.sub(r"\n{3,}", "\n\n", text)
+    except Exception:
+        return []
+
+    sections = list(_RE_NEWDAY_SECTION.finditer(text))
+    if not sections:
+        return []
+
+    labeled: list[str] = []
+    for i, sec in enumerate(sections):
+        sec_name = sec.group(2).strip()
+        # Strip parenthetical qualifiers: "Purchase Interest Rate (retail APR)" → "Purchase Interest Rate"
+        sec_name = re.sub(r"\s*\([^)]*\)", "", sec_name).strip().rstrip(" ,;")
+
+        # Section body: from end of this header to start of next
+        body_start = sec.end()
+        body_end = sections[i + 1].start() if i + 1 < len(sections) else len(text)
+        body = text[body_start:body_end]
+
+        if not _RE_NEWDAY_EXCEPT.search(body):
+            continue  # no exception in this section
+
+        # Find all individual DT-reference exception entries in this section
+        dt_entries = list(_RE_NEWDAY_DT_ENTRY.finditer(body))
+        if dt_entries:
+            for m in dt_entries:
+                raw = re.sub(r"\s+", " ", m.group(1)).strip()
+                # Strip trailing page-number artifacts: "... System = 49.9 4" → "... System = 49.9"
+                raw = _RE_TRAILING_ARTIFACT.sub("", raw).strip()
+                labeled.append(f"{sec_name}: {raw}")
+        else:
+            # Fallback: bare "Sample Pool = X; System = Y" anywhere in the section
+            sm = _RE_NEWDAY_SP_SIMPLE.search(body)
+            if sm:
+                raw = re.sub(r"\s+", " ", sm.group(1)).strip()
+                raw = _RE_TRAILING_ARTIFACT.sub("", raw).strip()
+                labeled.append(f"{sec_name}: {raw}")
+            else:
+                labeled.append(f"{sec_name}: exception found")
+
+    return labeled
 
 
 def _extract_fields_count(text: str) -> Optional[int]:
@@ -652,6 +783,7 @@ def _parse_html_tables(soup) -> dict:
         if found_any_count:
             exception_count = total_exceptions
 
+    findings = _dedup_findings(findings)
     return {
         "exception_count": exception_count,
         "findings": findings,
@@ -700,17 +832,46 @@ def parse_aup_html(html_content: str) -> list[dict]:
     # Overlay table-extracted data onto the first procedure (or only procedure)
     if procedures:
         p = procedures[0]
+
+        # ── NewDay / UK-format: section-aware finding labels ──────────────────
+        # Detect by presence of "Deloitte Reference" + "Sample Pool = N; System = N"
+        # pattern (unique to NewDay's Deloitte AUP letters).
+        _is_newday = bool(
+            re.search(r"Deloitte\s+Reference", html_content, re.IGNORECASE)
+            and re.search(r"Sample\s+Pool\s*[=:]", html_content, re.IGNORECASE)
+        )
+        if _is_newday:
+            labeled = _parse_newday_labeled(html_content)
+            if labeled:
+                p["findings"] = labeled
+                p["exception_count"] = len(labeled)
+                if p.get("sample_size"):
+                    try:
+                        p["exception_rate"] = len(labeled) / int(p["sample_size"])
+                    except (ValueError, ZeroDivisionError):
+                        pass
+                return procedures  # skip generic table overlay for NewDay
+
         # Only override if table parsing found something better
         if table_data["exception_count"] is not None:
             p["exception_count"] = table_data["exception_count"]
         if table_data["findings"]:
             p["findings"] = table_data["findings"]
+
         # If no exceptions found via table but "no exceptions" phrase in text, set 0
         if p["exception_count"] is None and _RE_NO_EXCEPTIONS.search(text):
             p["exception_count"] = 0
             if not p["findings"]:
                 p["findings"] = ["No exceptions noted"]
+
+        # Final dedup pass on assembled findings
+        if p.get("findings"):
+            p["findings"] = _dedup_findings(p["findings"])
+
         # Compute exception rate from count / sample_size
+        # Use len(findings) as the authoritative exception count
+        if p.get("findings") and p["exception_count"] is not None and p["exception_count"] > 0:
+            p["exception_count"] = len(p["findings"])
         if p["exception_count"] is not None and p.get("sample_size"):
             try:
                 p["exception_rate"] = p["exception_count"] / int(p["sample_size"])
