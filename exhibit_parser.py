@@ -370,6 +370,72 @@ def _extract_exception_info(text: str) -> dict:
     }
 
 
+_FINDING_WORD_NUM: dict[str, int] = {
+    "no": 0, "zero": 0,
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+    "twenty": 20, "twenty-one": 21, "twenty-two": 22, "twenty-three": 23,
+    "twenty-four": 24, "twenty-five": 25, "twenty-six": 26, "twenty-seven": 27,
+    "twenty-eight": 28, "twenty-nine": 29, "thirty": 30,
+}
+
+# Matches "Seven differences in buyer name" → "seven", or "26 differences" → "26".
+# \s* (not \s+) handles artifacts like "Twenty-sixdifferences" (no space).
+_RE_FINDING_COUNT = re.compile(
+    r"\b(twenty-?(?:one|two|three|four|five|six|seven|eight|nine)?"
+    r"|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen"
+    r"|no|zero|one|two|three|four|five|six|seven|eight|nine|ten"
+    r"|\d+)\s*"
+    r"(?:differences?|exceptions?|discrepancies?|instances?|cases?|samples?)\b",
+    re.IGNORECASE,
+)
+
+
+# Bare reference codes like "9398-3616-RQOF" or "ZFBERFAB2J6H97628" — these are
+# loan / account identifiers captured from exhibit tables, not exception descriptions.
+_RE_REFERENCE_CODE = re.compile(r"^[\dA-Z][\dA-Z-]{4,}$", re.ASCII)
+
+
+def _sum_exception_counts_from_findings(findings: list[str]) -> int:
+    """
+    Parse each finding description and return the total exception count.
+
+    Examples:
+      "Seven differences in buyer name"                              → 7
+      "Two differences in Amount of Payments"                        → 2
+      "One difference in Number of Payments"                         → 1
+      "Purchase Interest Rate: Sample Pool = 54.9; System = 49.9"   → 1 (default)
+      "9398-3616-RQOF"                                               → 0 (loan ID, skipped)
+
+    The total for those five descriptions = 7 + 2 + 1 + 1 + 0 = 11.
+    If a description contains no explicit count, it contributes 1.
+    Bare loan/account reference codes (no spaces, alphanumeric+hyphens) contribute 0.
+    """
+    total = 0
+    for f in findings:
+        stripped = f.strip()
+
+        # Skip bare reference codes — they are identifiers, not descriptions
+        if " " not in stripped and _RE_REFERENCE_CODE.match(stripped):
+            continue
+
+        m = _RE_FINDING_COUNT.search(stripped)
+        if m:
+            token = m.group(1).lower()
+            count = _FINDING_WORD_NUM.get(token)
+            if count is None:
+                try:
+                    count = int(token)
+                except ValueError:
+                    count = 1
+        else:
+            count = 1
+        total += count
+    return max(total, 0)   # guard against "no differences" summing to negative
+
+
 def _dedup_findings(findings: list[str]) -> list[str]:
     """
     Remove finding items that are pure label duplicates of longer descriptive items.
@@ -868,10 +934,11 @@ def parse_aup_html(html_content: str) -> list[dict]:
         if p.get("findings"):
             p["findings"] = _dedup_findings(p["findings"])
 
-        # Compute exception rate from count / sample_size
-        # Use len(findings) as the authoritative exception count
+        # Compute exception count as sum of stated counts in each finding description.
+        # "Seven differences in buyer name; Two differences in APR" → 7+2 = 9.
+        # A finding with no explicit number (NewDay, SoFi, etc.) contributes 1.
         if p.get("findings") and p["exception_count"] is not None and p["exception_count"] > 0:
-            p["exception_count"] = len(p["findings"])
+            p["exception_count"] = _sum_exception_counts_from_findings(p["findings"])
         if p["exception_count"] is not None and p.get("sample_size"):
             try:
                 p["exception_rate"] = p["exception_count"] / int(p["sample_size"])
