@@ -393,9 +393,9 @@ _RE_FINDING_COUNT = re.compile(
 )
 
 
-# Bare reference codes like "9398-3616-RQOF" or "ZFBERFAB2J6H97628" — these are
-# loan / account identifiers captured from exhibit tables, not exception descriptions.
-_RE_REFERENCE_CODE = re.compile(r"^[\dA-Z][\dA-Z-]{4,}$", re.ASCII)
+# Bare reference codes like "9398-3616-RQOF", "ZFBERFAB2J6H97628", or
+# "14713304439905165889-pagaya" — loan/account identifiers, not exception descriptions.
+_RE_REFERENCE_CODE = re.compile(r"^[\dA-Za-z][\dA-Za-z-]{4,}$")
 
 
 def _sum_exception_counts_from_findings(findings: list[str]) -> int:
