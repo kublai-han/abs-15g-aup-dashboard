@@ -254,6 +254,9 @@ st.markdown(
             color: #ffffff;
             letter-spacing: -0.02em;
             white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0;
         }
         .finsight-logo-badge {
             background: #7b5ea7;
@@ -264,7 +267,7 @@ st.markdown(
             border-radius: 3px;
             margin-right: 6px;
             letter-spacing: 0.04em;
-            vertical-align: middle;
+            flex-shrink: 0;
         }
         .finsight-search {
             flex: 1;
@@ -400,6 +403,7 @@ st.markdown(
             grid-template-columns: repeat(4, 1fr);
             gap: 0.9rem;
             margin-bottom: 2rem;
+            align-items: start;
         }
         @media (max-width: 1100px) {
             .issuer-grid { grid-template-columns: repeat(2, 1fr); }
