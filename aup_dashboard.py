@@ -1189,6 +1189,16 @@ _page_issuers = (
     if _cur_type else ISSUERS
 )
 
+# DB stores asset_type as e.g. "auto_loan"; nav sections use "auto".
+_DB_TYPE_TO_NAV: dict[str, str] = {"auto_loan": "auto"}
+
+def _filing_nav_type(f: dict) -> str:
+    """Return the nav section type for a filing, using per-filing asset_type first."""
+    db_type = (f.get("asset_type") or "").strip()
+    if db_type:
+        return _DB_TYPE_TO_NAV.get(db_type, db_type)
+    return ISSUERS.get(f.get("issuer_key", ""), {}).get("type", "")
+
 # ---------------------------------------------------------------------------
 # Header + Navigation — st.button + st.query_params gives smooth same-page
 # navigation without page reloads or new tabs.
@@ -1471,7 +1481,7 @@ with tab1:
 
     # --- Summary metrics ---
     all_filings = db.get_filings(limit=10_000, db_path=DB_PATH) if DB_PATH.exists() else []
-    all_filings = [f for f in all_filings if f.get("issuer_key") in _page_issuers]
+    all_filings = [f for f in all_filings if _filing_nav_type(f) == _cur_type] if _cur_type else all_filings
     total_issuers = len(_page_issuers)
     total_filings = len(all_filings)
 
@@ -1741,7 +1751,7 @@ with tab3:
         _no_data_banner()
     else:
         all_results = db.get_aup_results(limit=5000, db_path=DB_PATH)
-        all_results = [r for r in all_results if r.get("issuer_key") in _page_issuers]
+        all_results = [r for r in all_results if _filing_nav_type(r) == _cur_type] if _cur_type else all_results
 
         if not all_results:
             _no_data_banner()
