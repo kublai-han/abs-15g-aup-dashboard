@@ -948,6 +948,9 @@ def _fmt_finding(raw) -> str:
             continue
         if _re.match(r'^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$', s):
             continue
+        # Skip bare loan/account reference IDs (no spaces, alphanumeric+hyphens, ≥5 chars)
+        if ' ' not in s and _re.match(r'^[\dA-Za-z][\dA-Za-z-]{4,}$', s):
+            continue
         # Skip "found to be in agreement" / "no exception" — these are clean confirmations
         if _FINDING_AGREEMENT_RE.search(s):
             continue
@@ -979,7 +982,7 @@ def _fmt_finding(raw) -> str:
 
     if not clean:
         return "—"
-    return "; ".join(clean)
+    return "; ".join(c.rstrip(".") for c in clean)
 
 
 def _fmt_date(date_str: Optional[str]) -> str:
