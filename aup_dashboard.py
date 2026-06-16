@@ -1057,8 +1057,9 @@ def _dark_plotly_layout() -> dict:
 
 
 _TABLE_CSS = """<style>
-.styled-table{width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.5rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
-.styled-table thead th{background:#141428!important;color:#64748b!important;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.55rem 0.85rem;text-align:left;}
+body{margin:0;padding:0;}
+.styled-table{width:100%;border-collapse:separate;border-spacing:0;font-size:0.8rem;margin-top:0.5rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+.styled-table thead th{position:sticky;top:0;z-index:2;background:#141428!important;color:#64748b!important;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.55rem 0.85rem;text-align:left;box-shadow:0 1px 0 #2d2d5e;}
 .styled-table tbody tr{border-bottom:1px solid #1e1e3f;}
 .styled-table tbody tr:hover{background:#1e1e3f;}
 .styled-table tbody td{padding:0.55rem 0.85rem;color:#cbd5e1;vertical-align:middle;}
