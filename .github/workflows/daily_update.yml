@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -24,16 +26,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run AUP updater
+      - name: Run AUP updater (fetch new filings from EDGAR)
         env:
-          EDGAR_USER_AGENT: "AUP Dashboard kublai.han@gmail.com"
-        timeout-minutes: 10
+          EDGAR_USER_AGENT: "AUP Dashboard kennethjhan@gmail.com"
+        timeout-minutes: 15
         run: python -c "import aup_updater; aup_updater.update_all_issuers()"
 
-      - name: Run verification agent
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python aup_agent.py || echo "Agent verification skipped (no API key or error)"
+      - name: Post-process new filings (dedup, recount exceptions, fill rates)
+        timeout-minutes: 5
+        run: python fix_findings_counts.py
 
       - name: Commit updated database
         run: |
@@ -44,5 +45,6 @@ jobs:
             echo "No database changes — nothing to commit."
           else
             git commit -m "Daily AUP data update $(date -u +%Y-%m-%d)"
-            git push
+            git push origin main
+            git push origin main:sync-to-main
           fi
