@@ -1,4 +1,4 @@
-"""
+﻿"""
 aup_updater.py
 
 Daily updater that checks SEC EDGAR for new ABS-15G filings, downloads
@@ -894,7 +894,7 @@ def check_for_new_filings() -> dict:
                 )
                 if _is_cover_form and not _has_data:
                     logger.info(
-                        "Skipping %s %s ? appears to be a 15Ga-1 annual certification (no exhibit, no AUP data)",
+                        "Skipping %s %s - 15Ga-1 annual certification (no exhibit, no AUP data)",
                         issuer_key, accession_no,
                     )
                     continue
