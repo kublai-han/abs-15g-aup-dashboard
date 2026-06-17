@@ -272,15 +272,12 @@ STUDENT_LOAN_ISSUERS = {
     },
     "ecmc": {
         "name": "ECMC Group",
-        "cik": "0002030614",   # Viking Student Loan Capital, LLC — current ECMC depositor, 2024-2026
+        # Two depositor entities, both display under a single issuer key:
+        #   0002030614  Viking Student Loan Capital, LLC — current depositor, 2024-present
+        #   0001682009  Patriot Student Loan Capital, LLC — prior depositor, 2016-2021
+        "ciks": ["0002030614", "0001682009"],
         "type": "student_loan",
         "active": True,
-    },
-    "ecmc_legacy": {
-        "name": "ECMC Group (Legacy)",
-        "cik": "0001682009",   # Patriot Student Loan Capital, LLC — prior ECMC depositor, 2016-2021
-        "type": "student_loan",
-        "active": False,
     },
     "goal": {
         "name": "Goal Structured Solutions",
