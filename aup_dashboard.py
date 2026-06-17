@@ -885,6 +885,8 @@ _FINDING_NOISE = {"findings", "exception", "exceptions", "exception description"
                   "exceptions in our",
                   # Protiviti/narrative-style boilerplate
                   "noting no differences",
+                  # PDF table column headers mistakenly extracted as findings
+                  "sample loan number", "loan number", "loan id",
                   }
 
 # SEC cover-form section headers that contain "finding" but are NOT AUP findings
