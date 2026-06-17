@@ -81,8 +81,8 @@ NAV_STRUCTURE: dict[str, dict] = {
             {"key": "auto",           "label": "Auto",           "issuer_type": "auto",          "has_data": True},
             {"key": "credit_card",    "label": "Credit Card",    "issuer_type": "credit_card",   "has_data": True},
             {"key": "consumer_loans", "label": "Consumer Loans", "issuer_type": "consumer_loan", "has_data": True},
+            {"key": "student_loans",  "label": "Student Loans",  "issuer_type": "student_loan",  "has_data": True},
             {"key": "esoteric",       "label": "Esoteric",       "issuer_type": "esoteric",      "has_data": False},
-            {"key": "equipment",      "label": "Equipment",      "issuer_type": "equipment",     "has_data": False},
         ],
     },
     "mbs": {
@@ -116,7 +116,7 @@ NAV_STRUCTURE: dict[str, dict] = {
 
 _SUBCAT_ICONS: dict[str, str] = {
     "auto": "🚗", "credit_card": "💳", "consumer_loans": "👤",
-    "esoteric": "⚡", "equipment": "🏗️", "agency": "🏛️", "crt": "🛡️",
+    "student_loans": "🎓", "esoteric": "⚡", "agency": "🏛️", "crt": "🛡️",
     "hei": "🏠", "nqm": "🏡", "cmbs": "🏢", "hy_bonds": "📈",
     "lev_loans": "💰", "clo": "🔗", "bdc": "💼", "ig_bonds": "🏅",
     "ig_loans": "🤝", "covered": "🔒",
@@ -125,8 +125,8 @@ _SUBCAT_DESCS: dict[str, str] = {
     "auto": "Auto loan and floorplan ABS",
     "credit_card": "Credit card receivables ABS",
     "consumer_loans": "Personal and installment loan ABS",
+    "student_loans": "Student loan and refinancing ABS",
     "esoteric": "Non-traditional collateral ABS",
-    "equipment": "Equipment lease and loan ABS",
     "agency": "FNMA, FHLMC, GNMA MBS pools",
     "crt": "GSE credit risk sharing transactions",
     "hei": "Home equity investment products",
@@ -1192,7 +1192,7 @@ _page_issuers = (
 )
 
 # DB stores asset_type as e.g. "auto_loan"; nav sections use "auto".
-_DB_TYPE_TO_NAV: dict[str, str] = {"auto_loan": "auto"}
+_DB_TYPE_TO_NAV: dict[str, str] = {"auto_loan": "auto", "student_loan": "student_loans"}
 
 def _filing_nav_type(f: dict) -> str:
     """Return the nav section type for a filing, using per-filing asset_type first."""
