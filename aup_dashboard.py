@@ -1883,6 +1883,70 @@ with tab3:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
+            # --- Summary statistics ---
+            st.markdown(
+                '<div class="finsight-section-title">Summary Statistics by Issuer</div>',
+                unsafe_allow_html=True,
+            )
+
+            df_summary = (
+                df_filtered.dropna(subset=["exception_rate_pct"])
+                .groupby("Issuer")["exception_rate_pct"]
+                .agg(Avg="mean", Min="min", Max="max", Count="count")
+                .reset_index()
+                .rename(columns={
+                    "Avg": "Avg Exception Rate (%)",
+                    "Min": "Min (%)",
+                    "Max": "Max (%)",
+                    "Count": "# of Deals",
+                })
+                .sort_values("Issuer")
+            )
+            # ── AUP Rating: computed before formatting so values are numeric ──
+            def _aup_score(row):
+                avg = float(row["Avg Exception Rate (%)"])
+                mx  = float(row["Max (%)"])
+                cnt = int(row["# of Deals"])
+                rs = 60 if avg==0 else 55 if avg<0.5 else 48 if avg<1 else 40 if avg<2 else 30 if avg<4 else 20 if avg<7 else 10 if avg<10 else 0
+                sp = mx - avg
+                cs = 20 if sp<0.5 else 17 if sp<1 else 13 if sp<2 else 8 if sp<4 else 4
+                ts = 20 if cnt>=10 else 17 if cnt>=7 else 14 if cnt>=5 else 10 if cnt>=3 else 7 if cnt>=2 else 4
+                t  = rs + cs + ts
+                # AAA requires perfect record (0% exceptions) AND ≥10 deals
+                if t >= 92 and avg == 0 and cnt >= 10:
+                    rating, cls = "AAA", "r-aaa"
+                else:
+                    t = min(t, 91)  # cap below AAA if criteria not met
+                    if   t >= 90: rating, cls = "AA+",  "r-aa"
+                    elif t >= 87: rating, cls = "AA",   "r-aa"
+                    elif t >= 84: rating, cls = "AA-",  "r-aa"
+                    elif t >= 82: rating, cls = "A+",   "r-a"
+                    elif t >= 79: rating, cls = "A",    "r-a"
+                    elif t >= 76: rating, cls = "A-",   "r-a"
+                    elif t >= 74: rating, cls = "BBB+", "r-bbb"
+                    elif t >= 71: rating, cls = "BBB",  "r-bbb"
+                    elif t >= 68: rating, cls = "BBB-", "r-bbb"
+                    elif t >= 65: rating, cls = "BB+",  "r-bb"
+                    elif t >= 61: rating, cls = "BB",   "r-bb"
+                    elif t >= 58: rating, cls = "BB-",  "r-bb"
+                    elif t >= 55: rating, cls = "B+",   "r-b"
+                    elif t >= 51: rating, cls = "B",    "r-b"
+                    elif t >= 48: rating, cls = "B-",   "r-b"
+                    elif t >= 45: rating, cls = "CCC+", "r-ccc"
+                    elif t >= 41: rating, cls = "CCC",  "r-ccc"
+                    elif t >= 38: rating, cls = "CCC-", "r-ccc"
+                    elif t >= 28: rating, cls = "CC",   "r-cc"
+                    else:         rating, cls = "C",    "r-c"
+                return f'<span class="rating-badge {cls}">{rating}</span>'
+            df_summary["AUP Rating"] = df_summary.apply(_aup_score, axis=1)
+            for col in ["Avg Exception Rate (%)", "Min (%)", "Max (%)"]:
+                df_summary[col] = df_summary[col].map(lambda x: f"{x:.4f}")
+            df_summary = df_summary[["Issuer", "AUP Rating", "# of Deals", "Avg Exception Rate (%)", "Min (%)", "Max (%)"]]
+
+            st.html(_table_html(df_summary))
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
             # --- Trend chart ---
             st.markdown(
                 '<div class="finsight-section-title">Exception Rate Trend Over Time</div>',
@@ -1953,70 +2017,6 @@ with tab3:
                 )
                 fig_trend.update_traces(line=dict(width=2), marker=dict(size=6))
                 st.plotly_chart(fig_trend, use_container_width=True)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # --- Summary statistics ---
-            st.markdown(
-                '<div class="finsight-section-title">Summary Statistics by Issuer</div>',
-                unsafe_allow_html=True,
-            )
-
-            df_summary = (
-                df_filtered.dropna(subset=["exception_rate_pct"])
-                .groupby("Issuer")["exception_rate_pct"]
-                .agg(Avg="mean", Min="min", Max="max", Count="count")
-                .reset_index()
-                .rename(columns={
-                    "Avg": "Avg Exception Rate (%)",
-                    "Min": "Min (%)",
-                    "Max": "Max (%)",
-                    "Count": "# of Deals",
-                })
-                .sort_values("Issuer")
-            )
-            # ── AUP Rating: computed before formatting so values are numeric ──
-            def _aup_score(row):
-                avg = float(row["Avg Exception Rate (%)"])
-                mx  = float(row["Max (%)"])
-                cnt = int(row["# of Deals"])
-                rs = 60 if avg==0 else 55 if avg<0.5 else 48 if avg<1 else 40 if avg<2 else 30 if avg<4 else 20 if avg<7 else 10 if avg<10 else 0
-                sp = mx - avg
-                cs = 20 if sp<0.5 else 17 if sp<1 else 13 if sp<2 else 8 if sp<4 else 4
-                ts = 20 if cnt>=10 else 17 if cnt>=7 else 14 if cnt>=5 else 10 if cnt>=3 else 7 if cnt>=2 else 4
-                t  = rs + cs + ts
-                # AAA requires perfect record (0% exceptions) AND ≥10 deals
-                if t >= 92 and avg == 0 and cnt >= 10:
-                    rating, cls = "AAA", "r-aaa"
-                else:
-                    t = min(t, 91)  # cap below AAA if criteria not met
-                    if   t >= 90: rating, cls = "AA+",  "r-aa"
-                    elif t >= 87: rating, cls = "AA",   "r-aa"
-                    elif t >= 84: rating, cls = "AA-",  "r-aa"
-                    elif t >= 82: rating, cls = "A+",   "r-a"
-                    elif t >= 79: rating, cls = "A",    "r-a"
-                    elif t >= 76: rating, cls = "A-",   "r-a"
-                    elif t >= 74: rating, cls = "BBB+", "r-bbb"
-                    elif t >= 71: rating, cls = "BBB",  "r-bbb"
-                    elif t >= 68: rating, cls = "BBB-", "r-bbb"
-                    elif t >= 65: rating, cls = "BB+",  "r-bb"
-                    elif t >= 61: rating, cls = "BB",   "r-bb"
-                    elif t >= 58: rating, cls = "BB-",  "r-bb"
-                    elif t >= 55: rating, cls = "B+",   "r-b"
-                    elif t >= 51: rating, cls = "B",    "r-b"
-                    elif t >= 48: rating, cls = "B-",   "r-b"
-                    elif t >= 45: rating, cls = "CCC+", "r-ccc"
-                    elif t >= 41: rating, cls = "CCC",  "r-ccc"
-                    elif t >= 38: rating, cls = "CCC-", "r-ccc"
-                    elif t >= 28: rating, cls = "CC",   "r-cc"
-                    else:         rating, cls = "C",    "r-c"
-                return f'<span class="rating-badge {cls}">{rating}</span>'
-            df_summary["AUP Rating"] = df_summary.apply(_aup_score, axis=1)
-            for col in ["Avg Exception Rate (%)", "Min (%)", "Max (%)"]:
-                df_summary[col] = df_summary[col].map(lambda x: f"{x:.4f}")
-            df_summary = df_summary[["Issuer", "AUP Rating", "# of Deals", "Avg Exception Rate (%)", "Min (%)", "Max (%)"]]
-
-            st.html(_table_html(df_summary))
 
             st.markdown("<br>", unsafe_allow_html=True)
 
