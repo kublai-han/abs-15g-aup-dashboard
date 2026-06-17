@@ -1008,6 +1008,12 @@ def _accession_url(cik: str, accession: str) -> str:
     )
 
 
+def _primary_cik(issuer: dict) -> str:
+    """Return the primary CIK string for an issuer, supporting both 'cik' and 'ciks' fields."""
+    ciks = issuer.get("ciks")
+    return (ciks[0] if ciks else issuer.get("cik", ""))
+
+
 def _issuer_edgar_url(cik: str) -> str:
     return EDGAR_FILING_BASE.format(cik=cik.lstrip("0"))
 
@@ -1632,7 +1638,7 @@ with tab1:
 
         rows = []
         for key, issuer in _page_issuers.items():
-            edgar_url = _issuer_edgar_url(issuer["cik"])
+            edgar_url = _issuer_edgar_url(_primary_cik(issuer))
             label, color = SECTOR_BADGES.get(issuer.get("type", ""), ("ABS", "#7b5ea7"))
             badge_cell = (
                 f'<span class="sector-badge" style="background:{color}22;color:{color};'
@@ -1641,7 +1647,7 @@ with tab1:
             rows.append({
                 "Sector": badge_cell,
                 "Issuer": f'<b style="color:#f1f5f9;">{issuer["name"]}</b>',
-                "CIK": f'<span class="cik-badge">{issuer["cik"]}</span>',
+                "CIK": f'<span class="cik-badge">{_primary_cik(issuer)}</span>',
                 "Type": issuer.get("type", "").replace("_", " ").title(),
                 "Latest Filing": _fmt_date(latest_dates.get(key)),
                 "Filings": filing_counts.get(key, 0),
@@ -1678,7 +1684,7 @@ with tab2:
 
     selected_key = issuer_options[selected_name]
     issuer_info = ISSUERS[selected_key]
-    edgar_url = _issuer_edgar_url(issuer_info["cik"])
+    edgar_url = _issuer_edgar_url(_primary_cik(issuer_info))
     label, color = SECTOR_BADGES.get(issuer_info.get("type", ""), ("ABS", "#7b5ea7"))
     badge_html_str = (
         f'<span class="sector-badge" style="background:{color}22;color:{color};'
@@ -1690,7 +1696,7 @@ with tab2:
         <div class="issuer-detail-header">
             {badge_html_str}
             <div class="issuer-detail-name">{issuer_info["name"]}</div>
-            <span class="cik-badge">CIK {issuer_info["cik"]}</span>
+            <span class="cik-badge">CIK {_primary_cik(issuer_info)}</span>
             <div class="header-spacer"></div>
             <div class="issuer-detail-links">
                 <a href="{edgar_url}" target="_blank">View ABS-15G filings on EDGAR &#8599;</a>
@@ -1722,7 +1728,7 @@ with tab2:
         asset_type_label = ASSET_TYPE_LABELS.get(issuer_info.get("type", ""), issuer_info.get("type", "—"))
         for f in filings:
             acc = f.get("accession_number", "") or f.get("accession_no", "")
-            cik = f.get("cik", issuer_info["cik"])
+            cik = f.get("cik", _primary_cik(issuer_info))
             filing_url = _accession_url(cik, acc) if acc else ""
             filing_rows.append({
                 "Filing Date": _fmt_date(f.get("filed_date")),
