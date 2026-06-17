@@ -759,17 +759,13 @@ def check_for_new_filings(
         "new_filings": 0,
         "errors": 0,
         "details": [],
-        "_since_date": since_date,
-        "_max_new_per_issuer": max_new_per_issuer,
-        "_skip_parsing": skip_parsing,
     }
 
     if not ISSUERS:
         logger.warning("ISSUERS dict is empty – nothing to check.")
         return summary
 
-    # Ensure the shared schema exists before any inserts.
-    db.init_db(DB_PATH)
+    conn = _get_db()
 
     try:
         for issuer_key, issuer_info in ISSUERS.items():
@@ -791,12 +787,25 @@ def check_for_new_filings(
                     logger.error("Failed to fetch filings for %s CIK %s: %s", issuer_key, cik, exc)
                     summary["errors"] += 1
 
-        # Apply since_date filter and sort newest-first so we process
-        # recent filings first when max_new_per_issuer is in effect.
-        since_date = summary.get("_since_date", "")
-        if since_date:
-            filings = [f for f in filings if (f.get("filed_date") or "") >= since_date]
-        filings.sort(key=lambda f: f.get("filed_date") or "", reverse=True)
+            # Filter by since_date and sort newest-first
+            if since_date:
+                filings = [f for f in filings if (f.get("filed_date") or "") >= since_date]
+            filings.sort(key=lambda f: f.get("filed_date") or "", reverse=True)
+
+            new_this_issuer = 0
+            max_new = max_new_per_issuer
+
+            for filing in filings:
+                if max_new and new_this_issuer >= max_new:
+                    logger.info(
+                        "Reached max_new_per_issuer=%d for %s — stopping early.",
+                        max_new, issuer_key,
+                    )
+                    break
+
+                accession_no = filing["accession_no"]
+                if not accession_no:
+                    continue
 
                 if _filing_exists(conn, accession_no):
                     # Re-try if: (a) stored with no exhibit_url, or (b) bad parse from cover form
@@ -816,7 +825,6 @@ def check_for_new_filings(
                             if retry_url:
                                 aup_data = extract_aup_data(retry_url)
                                 procs = (aup_data or {}).get("procedures", [])
-                                # Try deal name from exhibit text first, then cover form
                                 deal_name = (
                                     _extract_deal_name(aup_data.get("raw_text") or "")
                                     or _extract_deal_name(filing.get("_cover_raw") or "")
@@ -855,16 +863,38 @@ def check_for_new_filings(
                         logger.debug("Already stored: %s", accession_no)
                     continue
 
-        for filing in filings:
-            if max_new and new_this_issuer >= max_new:
                 logger.info(
-                    "Reached max_new_per_issuer=%d for %s — stopping early.",
-                    max_new, issuer_key,
+                    "New filing found: %s %s filed %s",
+                    issuer_key, accession_no, filing["filed_date"],
                 )
-                break
-            accession_no = filing["accession_no"]
-            if not accession_no:
-                continue
+
+                if skip_parsing:
+                    try:
+                        filing_id = _insert_filing(
+                            conn=conn,
+                            issuer_key=issuer_key,
+                            cik=cik,
+                            accession_no=accession_no,
+                            form_type=filing["form_type"],
+                            filed_date=filing["filed_date"],
+                            period_of_report=filing["period_of_report"],
+                            exhibit_url=filing.get("exhibit_url"),
+                            aup_data=None,
+                            deal_name=None,
+                            asset_type=issuer_info.get("type"),
+                        )
+                        summary["new_filings"] += 1
+                        new_this_issuer += 1
+                        summary["details"].append({
+                            "issuer_key": issuer_key, "accession_no": accession_no,
+                            "filed_date": filing["filed_date"], "filing_id": filing_id,
+                            "exhibit_url": filing.get("exhibit_url"), "aup_provider": None,
+                            "procedures": 0,
+                        })
+                    except Exception as exc:
+                        logger.error("DB insert failed for %s / %s: %s", issuer_key, accession_no, exc)
+                        summary["errors"] += 1
+                    continue
 
                 # Always try Exhibit 99.1 first (real AUP letter); fall back to primary doc
                 exhibit_url = (
@@ -873,7 +903,7 @@ def check_for_new_filings(
                     or _find_exhibit_url(cik, accession_no)
                 )
 
-                # Fetch cover form to extract deal name (primary doc from submissions API)
+                # Fetch cover form to extract deal name
                 cover_raw = ""
                 cover_url = filing.get("exhibit_url")
                 if cover_url and cover_url != exhibit_url:
@@ -882,10 +912,8 @@ def check_for_new_filings(
                         cover_raw = fetch_exhibit(cover_url)
                     except Exception:
                         pass
-                # Deal name will also be checked from exhibit text after parsing
                 deal_name = _extract_deal_name(cover_raw)
-                issuer_info = ISSUERS.get(issuer_key, {})
-                asset_type  = issuer_info.get("type")
+                asset_type = issuer_info.get("type")
 
                 aup_data: Optional[dict] = None
 
@@ -901,27 +929,17 @@ def check_for_new_filings(
                         aup_data = {"error": str(exc), "procedures": [], "raw_text": ""}
                         summary["errors"] += 1
                 else:
-                    logger.warning(
-                        "No Exhibit 99.1 URL found for %s / %s",
-                        issuer_key, accession_no,
-                    )
+                    logger.warning("No Exhibit 99.1 URL found for %s / %s", issuer_key, accession_no)
 
-                # Fall back to exhibit text for deal name if cover form didn't have it
                 if not deal_name and aup_data:
                     deal_name = _extract_deal_name(aup_data.get("raw_text") or "")
 
-                # Skip 15Ga-1 annual certifications: these have no Exhibit 99.1
-                # and no AUP data; they're just annual compliance checkboxes.
-                # Detect by: exhibit_url is the ABS-15G cover form itself AND
-                # parsed result has no provider and no procedures with data.
+                # Skip 15Ga-1 annual certifications (no exhibit, no AUP data)
                 _procs = (aup_data or {}).get("procedures", [])
                 _provider = (aup_data or {}).get("aup_provider")
-                _has_data = (
-                    _provider
-                    or any(
-                        p.get("exception_count") is not None or p.get("sample_size")
-                        for p in _procs
-                    )
+                _has_data = _provider or any(
+                    p.get("exception_count") is not None or p.get("sample_size")
+                    for p in _procs
                 )
                 _exhibit_fn = (exhibit_url or "").rsplit("/", 1)[-1].lower()
                 _is_cover_form = (
@@ -930,12 +948,11 @@ def check_for_new_filings(
                 )
                 if _is_cover_form and not _has_data:
                     logger.info(
-                        "Skipping %s %s – appears to be a 15Ga-1 annual certification (no exhibit, no AUP data)",
+                        "Skipping %s %s – 15Ga-1 annual certification (no AUP data)",
                         issuer_key, accession_no,
                     )
                     continue
 
-                # Store in DB regardless (so we don't reprocess on next run)
                 try:
                     filing_id = _insert_filing(
                         conn=conn,
@@ -951,37 +968,13 @@ def check_for_new_filings(
                         asset_type=asset_type,
                     )
                 except Exception as exc:
-                    logger.error(
-                        "DB insert failed for %s / %s: %s",
-                        issuer_key, accession_no, exc,
-                    )
+                    logger.error("DB insert failed for %s / %s: %s", issuer_key, accession_no, exc)
                     summary["errors"] += 1
                     continue
 
                 summary["new_filings"] += 1
-                summary["details"].append(
-                    {
-                        "issuer_key":   issuer_key,
-                        "accession_no": accession_no,
-                        "filed_date":   filing["filed_date"],
-                        "filing_id":    filing_id,
-                        "exhibit_url":  exhibit_url,
-                        "aup_provider": (aup_data or {}).get("aup_provider"),
-                        "procedures":   len((aup_data or {}).get("procedures", [])),
-                    }
-                )
-            except Exception as exc:
-                logger.error(
-                    "DB insert failed for %s / %s: %s",
-                    issuer_key, accession_no, exc,
-                )
-                summary["errors"] += 1
-                continue
-
-            summary["new_filings"] += 1
-            new_this_issuer += 1
-            summary["details"].append(
-                {
+                new_this_issuer += 1
+                summary["details"].append({
                     "issuer_key":   issuer_key,
                     "accession_no": accession_no,
                     "filed_date":   filing["filed_date"],
@@ -989,8 +982,10 @@ def check_for_new_filings(
                     "exhibit_url":  exhibit_url,
                     "aup_provider": (aup_data or {}).get("aup_provider"),
                     "procedures":   len((aup_data or {}).get("procedures", [])),
-                }
-            )
+                })
+
+    finally:
+        conn.close()
 
     logger.info(
         "Daily check complete – issuers=%d new_filings=%d errors=%d",
