@@ -1185,11 +1185,7 @@ if nav_main not in NAV_STRUCTURE:
 _section  = NAV_STRUCTURE[nav_main]
 _sub_info = next((s for s in _section["subs"] if s["key"] == nav_sub), None)
 
-_cur_type     = _sub_info["issuer_type"] if _sub_info else None
-_page_issuers = (
-    {k: v for k, v in ISSUERS.items() if v.get("type") == _cur_type}
-    if _cur_type else ISSUERS
-)
+_cur_type = _sub_info["issuer_type"] if _sub_info else None
 
 # DB stores asset_type as e.g. "auto_loan"; nav sections use "auto".
 _DB_TYPE_TO_NAV: dict[str, str] = {"auto_loan": "auto", "student_loan": "student_loans"}
@@ -1200,6 +1196,40 @@ def _filing_nav_type(f: dict) -> str:
     if db_type:
         return _DB_TYPE_TO_NAV.get(db_type, db_type)
     return ISSUERS.get(f.get("issuer_key", ""), {}).get("type", "")
+
+
+def _build_page_issuers(cur_type: str | None) -> dict:
+    """Return the issuers dict for the current nav section.
+
+    Includes issuers registered with this type AND any issuer that has at
+    least one filing with a per-filing asset_type override for this section
+    (e.g. SoFi's 2015-C is student_loan even though SoFi's default is consumer_loan).
+    """
+    if not cur_type:
+        return ISSUERS
+    # Start with issuers whose default type matches
+    result = {k: v for k, v in ISSUERS.items() if v.get("type") == cur_type}
+    # Also pull in issuers that have per-filing overrides for this section
+    if DB_PATH.exists():
+        try:
+            import sqlite3 as _sqlite3
+            _conn = _sqlite3.connect(DB_PATH)
+            _conn.row_factory = _sqlite3.Row
+            _rows = _conn.execute(
+                "SELECT DISTINCT issuer_key, asset_type FROM filings WHERE asset_type IS NOT NULL AND asset_type != ''"
+            ).fetchall()
+            _conn.close()
+            for row in _rows:
+                ik = row["issuer_key"]
+                mapped = _DB_TYPE_TO_NAV.get(row["asset_type"], row["asset_type"])
+                if mapped == cur_type and ik in ISSUERS and ik not in result:
+                    result[ik] = ISSUERS[ik]
+        except Exception:
+            pass
+    return result
+
+
+_page_issuers = _build_page_issuers(_cur_type)
 
 # ---------------------------------------------------------------------------
 # Header + Navigation — st.button + st.query_params gives smooth same-page
@@ -1634,6 +1664,10 @@ with tab2:
     st.markdown('<div class="finsight-section-title">Issuer Profiles</div>', unsafe_allow_html=True)
 
     issuer_options = {v["name"]: k for k, v in _page_issuers.items()}
+
+    if not issuer_options:
+        st.info("No issuers found for this section.")
+        st.stop()
 
     col_sel, col_spacer = st.columns([2, 5])
     with col_sel:
