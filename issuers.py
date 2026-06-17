@@ -284,21 +284,14 @@ STUDENT_LOAN_ISSUERS = {
     },
     "goal": {
         "name": "Goal Structured Solutions",
-        "cik": "0001666411",   # Goal Structured Solutions, LLC (fka Inc.) — annual filer 2016-2026
+        # Multiple depositor SPVs all display under this single issuer key:
+        #   0001666411  Goal Structured Solutions, LLC — sponsor/securitizer, annual 15Ga-1 filer
+        #   0001692054  GS2 Depositor 2016-A SPV, LLC — Trust 2016-A depositor
+        #   0001691661  GS2 DEPOSITOR 2016-B SPV, LLC — Trust 2016-B depositor
+        #   0001708959  GS2 MASTER DEPOSITOR-I SPV, LLC — Master Trust-I depositor (2017-A, 2019-A)
+        "ciks": ["0001666411", "0001692054", "0001691661", "0001708959"],
         "type": "student_loan",
         "active": True,
-    },
-    "goal_financial": {
-        "name": "Goal Financial",
-        "cik": "0001542102",   # Goal Financial, LLC — annual filer 2012-2024
-        "type": "student_loan",
-        "active": True,
-    },
-    "goal_gs2": {
-        "name": "Goal Structured Solutions (Master Trust-I)",
-        "cik": "0001708959",   # GS2 MASTER DEPOSITOR-I SPV, LLC — Master Trust-I depositor, 2017-2019
-        "type": "student_loan",
-        "active": False,
     },
 }
 
@@ -315,7 +308,13 @@ def get_all_ciks() -> dict[str, str]:
         Keys are issuer identifiers (e.g. "pagaya"), values are zero-padded
         10-digit CIK strings as they appear on SEC EDGAR.
     """
-    return {key: issuer["cik"] for key, issuer in ISSUERS.items()}
+    result = {}
+    for key, issuer in ISSUERS.items():
+        ciks = issuer.get("ciks") or [issuer.get("cik", "")]
+        for cik in ciks:
+            if cik:
+                result[f"{key}|{cik}"] = cik
+    return result
 
 
 def get_issuer_by_cik(cik: str) -> Optional[dict]:
@@ -338,7 +337,8 @@ def get_issuer_by_cik(cik: str) -> Optional[dict]:
     """
     normalised = cik.lstrip("0").zfill(10)
     for key, issuer in ISSUERS.items():
-        if issuer["cik"].lstrip("0").zfill(10) == normalised:
+        ciks = issuer.get("ciks") or [issuer.get("cik", "")]
+        if any(c.lstrip("0").zfill(10) == normalised for c in ciks if c):
             return {**issuer, "key": key}
     return None
 
@@ -351,7 +351,8 @@ def get_active_issuers() -> dict[str, dict]:
 if __name__ == "__main__":
     print("Registered issuers:")
     for key, issuer in ISSUERS.items():
-        print(f"  {key:20s}  CIK={issuer['cik']}  ({issuer['name']})")
+        ciks = issuer.get("ciks") or [issuer.get("cik", "?")]
+        print(f"  {key:30s}  CIKs={ciks}  ({issuer['name']})")
 
     print("\nAll CIKs:")
     for key, cik in get_all_ciks().items():
