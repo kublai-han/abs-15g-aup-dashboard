@@ -254,6 +254,50 @@ AUTO_ISSUERS = {
 
 ISSUERS.update(AUTO_ISSUERS)
 
+# ---------------------------------------------------------------------------
+# Student loan ABS issuers — verified ABS-15G filers
+# ---------------------------------------------------------------------------
+STUDENT_LOAN_ISSUERS = {
+    "nelnet": {
+        "name": "Nelnet",
+        "cik": "0001258602",   # NELNET INC — annual ABS-15G filer 2014-2026 (Nelnet Education Loan Funding)
+        "type": "student_loan",
+        "active": True,
+    },
+    "education_funding_capital": {
+        "name": "Education Funding Capital I (Nelnet)",
+        "cik": "0001219701",   # Education Funding Capital I, LLC — Nelnet co-depositor, annual filer 2015-2026
+        "type": "student_loan",
+        "active": True,
+    },
+    "ecmc": {
+        "name": "ECMC Group",
+        "cik": "0002030614",   # Viking Student Loan Capital, LLC — current ECMC depositor, 2024-2026
+        "type": "student_loan",
+        "active": True,
+    },
+    "ecmc_legacy": {
+        "name": "ECMC Group (Legacy)",
+        "cik": "0001682009",   # Patriot Student Loan Capital, LLC — prior ECMC depositor, 2016-2021
+        "type": "student_loan",
+        "active": False,
+    },
+    "goal": {
+        "name": "Goal Structured Solutions",
+        "cik": "0001666411",   # Goal Structured Solutions, LLC (fka Inc.) — annual filer 2016-2026
+        "type": "student_loan",
+        "active": True,
+    },
+    "goal_financial": {
+        "name": "Goal Financial",
+        "cik": "0001542102",   # Goal Financial, LLC — annual filer 2012-2024
+        "type": "student_loan",
+        "active": True,
+    },
+}
+
+ISSUERS.update(STUDENT_LOAN_ISSUERS)
+
 
 def get_all_ciks() -> dict[str, str]:
     """

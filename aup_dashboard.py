@@ -1188,7 +1188,7 @@ _sub_info = next((s for s in _section["subs"] if s["key"] == nav_sub), None)
 _cur_type = _sub_info["issuer_type"] if _sub_info else None
 
 # DB stores asset_type as e.g. "auto_loan"; nav sections use "auto".
-_DB_TYPE_TO_NAV: dict[str, str] = {"auto_loan": "auto", "student_loan": "student_loans"}
+_DB_TYPE_TO_NAV: dict[str, str] = {"auto_loan": "auto"}
 
 def _filing_nav_type(f: dict) -> str:
     """Return the nav section type for a filing, using per-filing asset_type first."""
@@ -1705,6 +1705,8 @@ with tab2:
         st.stop()
 
     filings = db.get_filings(issuer_key=selected_key, limit=200, db_path=DB_PATH)
+    if _cur_type:
+        filings = [f for f in filings if _filing_nav_type(f) == _cur_type]
 
     # --- Filing History ---
     st.markdown('<div class="finsight-section-title">Filing History</div>', unsafe_allow_html=True)
@@ -1744,6 +1746,8 @@ with tab2:
     )
 
     aup_results = db.get_aup_results(issuer_key=selected_key, limit=1000, db_path=DB_PATH)
+    if _cur_type:
+        aup_results = [r for r in aup_results if _filing_nav_type(r) == _cur_type]
 
     if not aup_results:
         st.markdown(
