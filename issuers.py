@@ -294,6 +294,12 @@ STUDENT_LOAN_ISSUERS = {
         "type": "student_loan",
         "active": True,
     },
+    "goal_gs2": {
+        "name": "Goal Structured Solutions (Master Trust-I)",
+        "cik": "0001708959",   # GS2 MASTER DEPOSITOR-I SPV, LLC — Master Trust-I depositor, 2017-2019
+        "type": "student_loan",
+        "active": False,
+    },
 }
 
 ISSUERS.update(STUDENT_LOAN_ISSUERS)
