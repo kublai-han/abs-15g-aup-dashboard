@@ -260,9 +260,13 @@ ISSUERS.update(AUTO_ISSUERS)
 STUDENT_LOAN_ISSUERS = {
     "nelnet": {
         "name": "Nelnet",
-        # Two depositor entities:
+        # Two depositor entities (private loan trusts — letter suffixes 2021-A, 2025-A, etc.):
         #   0001258602  NELNET INC — sponsor, annual 15Ga-1 filer + 2021/2023 deal AUPs
         #   0002057405  Santiago Student Loan Depositor Trust — NSLT 2025+ deal AUPs
+        # NOTE: Nelnet also has FFELP-backed trusts with numeric suffixes (2004-3 through 2025-1)
+        # filed under Nelnet Inc. These do NOT have individual 15Ga-2 AUP filings on EDGAR;
+        # only the annual 15Ga-1 "no activity" certification covers them.
+        # See: https://abs.nelnetinvestors.com/debt-securities/nelnet-student-loan-trust/
         "ciks": ["0001258602", "0002057405"],
         "type": "student_loan",
         "active": True,
