@@ -264,18 +264,21 @@ STUDENT_LOAN_ISSUERS = {
         "type": "student_loan",
         "active": True,
     },
-    "education_funding_capital": {
-        "name": "Education Funding Capital I (Nelnet)",
-        "cik": "0001219701",   # Education Funding Capital I, LLC — Nelnet co-depositor, annual filer 2015-2026
-        "type": "student_loan",
-        "active": True,
-    },
     "ecmc": {
         "name": "ECMC Group",
         # Two depositor entities, both display under a single issuer key:
         #   0002030614  Viking Student Loan Capital, LLC — current depositor, 2024-present
         #   0001682009  Patriot Student Loan Capital, LLC — prior depositor, 2016-2021
         "ciks": ["0002030614", "0001682009"],
+        "type": "student_loan",
+        "active": True,
+    },
+    "navient": {
+        "name": "Navient",
+        # Two depositor entities:
+        #   0001179550  Navient Credit Funding, LLC — primary depositor (NavSL / NAVRL trusts)
+        #   0002071239  Navient Education Loan Funding, LLC — newer depositor (NAVEL trusts, 2025+)
+        "ciks": ["0001179550", "0002071239"],
         "type": "student_loan",
         "active": True,
     },
