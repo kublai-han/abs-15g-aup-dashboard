@@ -260,7 +260,10 @@ ISSUERS.update(AUTO_ISSUERS)
 STUDENT_LOAN_ISSUERS = {
     "nelnet": {
         "name": "Nelnet",
-        "cik": "0001258602",   # NELNET INC — annual ABS-15G filer 2014-2026 (Nelnet Education Loan Funding)
+        # Two depositor entities:
+        #   0001258602  NELNET INC — sponsor, annual 15Ga-1 filer + 2021/2023 deal AUPs
+        #   0002057405  Santiago Student Loan Depositor Trust — NSLT 2025+ deal AUPs
+        "ciks": ["0001258602", "0002057405"],
         "type": "student_loan",
         "active": True,
     },
