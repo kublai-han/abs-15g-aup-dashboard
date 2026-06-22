@@ -197,7 +197,7 @@ ISSUER_COLOR_MAP: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
-    page_title="ABS-15G AUP Monitor",
+    page_title="Bond Data Quality",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -1298,7 +1298,7 @@ st.markdown(f"""<style>
 st.markdown(f"""
 <div class="finsight-header">
   <div class="page-wrapper" style="display:flex;align-items:center;gap:1.25rem;width:100%;padding:0;">
-    <div class="finsight-logo"><span class="finsight-logo-badge">AUP</span>AUP Monitor</div>
+    <div class="finsight-logo"><span class="finsight-logo-badge">BDQ</span>Bond Data Quality</div>
     <div class="header-spacer"></div>
     <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
   </div>
