@@ -98,11 +98,11 @@ NAV_STRUCTURE: dict[str, dict] = {
     "mbs": {
         "label": "Mortgage Backed Securities", "short": "MBS", "color": "#2563eb",
         "subs": [
-            {"key": "nqm",           "label": "Non-Qualified Mortgage",       "issuer_type": "nqm",           "has_data": False},
-            {"key": "second_lien",   "label": "Second Lien",                  "issuer_type": "second_lien",   "has_data": False},
-            {"key": "npl",           "label": "Non-Performing Loans",         "issuer_type": "npl",           "has_data": False},
-            {"key": "sfr",           "label": "Single Family Rental",         "issuer_type": "sfr",           "has_data": False},
-            {"key": "rtl",           "label": "Residential Transition Loans", "issuer_type": "rtl",           "has_data": False},
+            {"key": "nqm",           "label": "Non-Qualified Mortgage",       "issuer_type": "nqm",           "has_data": True},
+            {"key": "second_lien",   "label": "Second Lien",                  "issuer_type": "second_lien",   "has_data": True},
+            {"key": "npl",           "label": "Non-Performing Loans",         "issuer_type": "npl",           "has_data": True},
+            {"key": "sfr",           "label": "Single Family Rental",         "issuer_type": "sfr",           "has_data": True},
+            {"key": "rtl",           "label": "Residential Transition Loans", "issuer_type": "rtl",           "has_data": True},
             {"key": "agency",        "label": "Agency MBS",                   "issuer_type": "agency",        "has_data": False},
             {"key": "crt",           "label": "Credit Risk Transfer",         "issuer_type": "crt",           "has_data": False},
             {"key": "hei",           "label": "Home Equity Investments",      "issuer_type": "hei",           "has_data": False},

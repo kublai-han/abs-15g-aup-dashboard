@@ -304,6 +304,88 @@ STUDENT_LOAN_ISSUERS = {
 
 ISSUERS.update(STUDENT_LOAN_ISSUERS)
 
+# ---------------------------------------------------------------------------
+# Mortgage Backed Securities — Non-Qualified Mortgage (NQM)
+# ---------------------------------------------------------------------------
+NQM_ISSUERS = {
+    "angel_oak": {
+        "name": "Angel Oak Mortgage Trust",
+        "cik": "0001697970",   # Angel Oak Mortgage Trust I, LLC — 72 ABS-15G filings
+        "type": "nqm",
+        "active": True,
+    },
+    "mfa_nqm": {
+        "name": "MFA Financial (Verus)",
+        "cik": "0001803775",   # MFRA NQM Depositor, LLC — 45 filings, AMC Diligence AUPs
+        "type": "nqm",
+        "active": True,
+    },
+    "ellington_nqm": {
+        "name": "Ellington Financial Mortgage",
+        "cik": "0001946154",   # EFMT Depositor LLC — 45 filings
+        "type": "nqm",
+        "active": True,
+    },
+}
+
+ISSUERS.update(NQM_ISSUERS)
+
+# ---------------------------------------------------------------------------
+# Mortgage Backed Securities — Second Lien
+# ---------------------------------------------------------------------------
+SECOND_LIEN_ISSUERS = {
+    "cascade_funding": {
+        "name": "Cascade Funding Mortgage",
+        "cik": "0001796407",   # Cascade Funding Mortgage Depositor HB, LLC — 34 filings
+        "type": "second_lien",
+        "active": True,
+    },
+}
+
+ISSUERS.update(SECOND_LIEN_ISSUERS)
+
+# ---------------------------------------------------------------------------
+# Mortgage Backed Securities — Non-Performing Loans (NPL)
+# ---------------------------------------------------------------------------
+NPL_ISSUERS = {
+    "velocity_npl": {
+        "name": "Velocity (VCC Mortgage)",
+        "cik": "0001542220",   # VCC Mortgage Securities, LLC — 57 filings, AMC Diligence AUPs
+        "type": "npl",
+        "active": True,
+    },
+}
+
+ISSUERS.update(NPL_ISSUERS)
+
+# ---------------------------------------------------------------------------
+# Mortgage Backed Securities — Single Family Rental (SFR)
+# ---------------------------------------------------------------------------
+SFR_ISSUERS = {
+    "corevest_sfr": {
+        "name": "CoreVest (Redwood Trust)",
+        "cik": "0001719472",   # CoreVest American Finance Depositor LLC — 31 filings
+        "type": "sfr",
+        "active": True,
+    },
+}
+
+ISSUERS.update(SFR_ISSUERS)
+
+# ---------------------------------------------------------------------------
+# Mortgage Backed Securities — Residential Transition Loans (RTL)
+# ---------------------------------------------------------------------------
+RTL_ISSUERS = {
+    "saluda_grade": {
+        "name": "Saluda Grade Mortgage",
+        "cik": "0001831646",   # Saluda Grade Mortgage Funding LLC — 30 filings
+        "type": "rtl",
+        "active": True,
+    },
+}
+
+ISSUERS.update(RTL_ISSUERS)
+
 
 def get_all_ciks() -> dict[str, str]:
     """
