@@ -1929,17 +1929,61 @@ with tab3:
                     df_filtered.dropna(subset=["grade_a_pct"])
                     .groupby("Issuer")
                     .agg(
-                        **{"Avg A%": ("grade_a_pct", "mean"),
-                           "Avg B%": ("grade_b_pct", "mean"),
-                           "Avg C%": ("grade_c_pct", "mean"),
-                           "Avg D%": ("grade_d_pct", "mean"),
+                        **{"_avg_a": ("grade_a_pct", "mean"),
+                           "_avg_b": ("grade_b_pct", "mean"),
+                           "_avg_c": ("grade_c_pct", "mean"),
+                           "_avg_d": ("grade_d_pct", "mean"),
                            "# of Deals": ("grade_a_pct", "count")}
                     )
                     .reset_index()
                     .sort_values("Issuer")
                 )
-                for gc in ["Avg A%", "Avg B%", "Avg C%", "Avg D%"]:
-                    df_summary[gc] = df_summary[gc].apply(lambda x: f"{x:.1f}")
+
+                def _mbs_score(row):
+                    avg_a = float(row["_avg_a"])
+                    avg_c = float(row["_avg_c"])
+                    avg_d = float(row["_avg_d"])
+                    cnt = int(row["# of Deals"])
+                    # A% score: 60 points max
+                    rs = 60 if avg_a == 100 else 55 if avg_a >= 98 else 50 if avg_a >= 95 else 44 if avg_a >= 90 else 36 if avg_a >= 85 else 28 if avg_a >= 80 else 20 if avg_a >= 70 else 10 if avg_a >= 50 else 0
+                    # C+D penalty: 20 points max
+                    cd = avg_c + avg_d
+                    cs = 20 if cd == 0 else 17 if cd < 1 else 14 if cd < 3 else 10 if cd < 5 else 6 if cd < 10 else 2
+                    # Track record: 20 points max
+                    ts = 20 if cnt >= 10 else 17 if cnt >= 7 else 14 if cnt >= 5 else 10 if cnt >= 3 else 7 if cnt >= 2 else 4
+                    t = rs + cs + ts
+                    if t >= 92 and avg_a == 100 and cnt >= 5:
+                        rating, cls = "AAA", "r-aaa"
+                    else:
+                        t = min(t, 91)
+                        if   t >= 90: rating, cls = "AA+",  "r-aa"
+                        elif t >= 87: rating, cls = "AA",   "r-aa"
+                        elif t >= 84: rating, cls = "AA-",  "r-aa"
+                        elif t >= 82: rating, cls = "A+",   "r-a"
+                        elif t >= 79: rating, cls = "A",    "r-a"
+                        elif t >= 76: rating, cls = "A-",   "r-a"
+                        elif t >= 74: rating, cls = "BBB+", "r-bbb"
+                        elif t >= 71: rating, cls = "BBB",  "r-bbb"
+                        elif t >= 68: rating, cls = "BBB-", "r-bbb"
+                        elif t >= 65: rating, cls = "BB+",  "r-bb"
+                        elif t >= 61: rating, cls = "BB",   "r-bb"
+                        elif t >= 58: rating, cls = "BB-",  "r-bb"
+                        elif t >= 55: rating, cls = "B+",   "r-b"
+                        elif t >= 51: rating, cls = "B",    "r-b"
+                        elif t >= 48: rating, cls = "B-",   "r-b"
+                        elif t >= 45: rating, cls = "CCC+", "r-ccc"
+                        elif t >= 41: rating, cls = "CCC",  "r-ccc"
+                        elif t >= 38: rating, cls = "CCC-", "r-ccc"
+                        elif t >= 28: rating, cls = "CC",   "r-cc"
+                        else:         rating, cls = "C",    "r-c"
+                    return f'<span class="rating-badge {cls}">{rating}</span>'
+
+                df_summary["TPR Rating"] = df_summary.apply(_mbs_score, axis=1)
+                df_summary["Avg A%"] = df_summary["_avg_a"].apply(lambda x: f"{x:.1f}")
+                df_summary["Avg B%"] = df_summary["_avg_b"].apply(lambda x: f"{x:.1f}")
+                df_summary["Avg C%"] = df_summary["_avg_c"].apply(lambda x: f"{x:.1f}")
+                df_summary["Avg D%"] = df_summary["_avg_d"].apply(lambda x: f"{x:.1f}")
+                df_summary = df_summary[["Issuer", "TPR Rating", "# of Deals", "Avg A%", "Avg B%", "Avg C%", "Avg D%"]]
             else:
                 df_summary = (
                     df_filtered.dropna(subset=["exception_rate_pct"])

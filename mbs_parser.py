@@ -95,18 +95,18 @@ def _try_clayton(text: str) -> Optional[dict]:
 
     # Find the Total row: "Total <A_count> <B_count> <C_count> <D_count> <total>"
     totals = re.search(
-        r"Total\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)",
+        r"Total\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)",
         section,
     )
     if not totals:
         return None
 
     a, b, c, d, total = (
-        int(totals.group(1)),
-        int(totals.group(2)),
-        int(totals.group(3)),
-        int(totals.group(4)),
-        int(totals.group(5)),
+        int(totals.group(1).replace(",", "")),
+        int(totals.group(2).replace(",", "")),
+        int(totals.group(3).replace(",", "")),
+        int(totals.group(4).replace(",", "")),
+        int(totals.group(5).replace(",", "")),
     )
 
     if total == 0:
