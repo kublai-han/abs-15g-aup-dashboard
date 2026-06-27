@@ -1786,17 +1786,17 @@ with tab2:
             pool_str = f"{int(float(pool_raw)):,}" if pool_raw and str(pool_raw).strip() not in ("", "—", "None", "nan") else "—"
             sample_str = str(int(float(s))) if (s := str(r.get("sample_size") or "")).strip() not in ("", "None", "nan", "0") else "—"
 
-            if _is_mbs and r.get("grade_a_pct") is not None:
+            if _is_mbs:
                 result_rows.append({
                     "Trust Series": r.get("deal_name") or "—",
                     "Filing Date": _fmt_date(r.get("filed_date")),
                     "Reviewer": r.get("aup_provider") or "—",
                     "Pool Size": pool_str,
                     "Sample": sample_str,
-                    "A%": f"{r['grade_a_pct']:.1f}",
-                    "B%": f"{r['grade_b_pct']:.1f}",
-                    "C%": f"{r['grade_c_pct']:.1f}",
-                    "D%": f"{r['grade_d_pct']:.1f}",
+                    "A%": f"{r['grade_a_pct']:.1f}" if r.get("grade_a_pct") is not None else "—",
+                    "B%": f"{r['grade_b_pct']:.1f}" if r.get("grade_b_pct") is not None else "—",
+                    "C%": f"{r['grade_c_pct']:.1f}" if r.get("grade_c_pct") is not None else "—",
+                    "D%": f"{r['grade_d_pct']:.1f}" if r.get("grade_d_pct") is not None else "—",
                 })
             else:
                 exc_rate = r.get("exception_rate")
@@ -1923,59 +1923,76 @@ with tab3:
                 unsafe_allow_html=True,
             )
 
-            df_summary = (
-                df_filtered.dropna(subset=["exception_rate_pct"])
-                .groupby("Issuer")["exception_rate_pct"]
-                .agg(Avg="mean", Min="min", Max="max", Count="count")
-                .reset_index()
-                .rename(columns={
-                    "Avg": "Avg Exception Rate (%)",
-                    "Min": "Min (%)",
-                    "Max": "Max (%)",
-                    "Count": "# of Deals",
-                })
-                .sort_values("Issuer")
-            )
-            # ── AUP Rating: computed before formatting so values are numeric ──
-            def _aup_score(row):
-                avg = float(row["Avg Exception Rate (%)"])
-                mx  = float(row["Max (%)"])
-                cnt = int(row["# of Deals"])
-                rs = 60 if avg==0 else 55 if avg<0.5 else 48 if avg<1 else 40 if avg<2 else 30 if avg<4 else 20 if avg<7 else 10 if avg<10 else 0
-                sp = mx - avg
-                cs = 20 if sp<0.5 else 17 if sp<1 else 13 if sp<2 else 8 if sp<4 else 4
-                ts = 20 if cnt>=10 else 17 if cnt>=7 else 14 if cnt>=5 else 10 if cnt>=3 else 7 if cnt>=2 else 4
-                t  = rs + cs + ts
-                # AAA requires perfect record (0% exceptions) AND ≥10 deals
-                if t >= 92 and avg == 0 and cnt >= 10:
-                    rating, cls = "AAA", "r-aaa"
-                else:
-                    t = min(t, 91)  # cap below AAA if criteria not met
-                    if   t >= 90: rating, cls = "AA+",  "r-aa"
-                    elif t >= 87: rating, cls = "AA",   "r-aa"
-                    elif t >= 84: rating, cls = "AA-",  "r-aa"
-                    elif t >= 82: rating, cls = "A+",   "r-a"
-                    elif t >= 79: rating, cls = "A",    "r-a"
-                    elif t >= 76: rating, cls = "A-",   "r-a"
-                    elif t >= 74: rating, cls = "BBB+", "r-bbb"
-                    elif t >= 71: rating, cls = "BBB",  "r-bbb"
-                    elif t >= 68: rating, cls = "BBB-", "r-bbb"
-                    elif t >= 65: rating, cls = "BB+",  "r-bb"
-                    elif t >= 61: rating, cls = "BB",   "r-bb"
-                    elif t >= 58: rating, cls = "BB-",  "r-bb"
-                    elif t >= 55: rating, cls = "B+",   "r-b"
-                    elif t >= 51: rating, cls = "B",    "r-b"
-                    elif t >= 48: rating, cls = "B-",   "r-b"
-                    elif t >= 45: rating, cls = "CCC+", "r-ccc"
-                    elif t >= 41: rating, cls = "CCC",  "r-ccc"
-                    elif t >= 38: rating, cls = "CCC-", "r-ccc"
-                    elif t >= 28: rating, cls = "CC",   "r-cc"
-                    else:         rating, cls = "C",    "r-c"
-                return f'<span class="rating-badge {cls}">{rating}</span>'
-            df_summary["AUP Rating"] = df_summary.apply(_aup_score, axis=1)
-            for col in ["Avg Exception Rate (%)", "Min (%)", "Max (%)"]:
-                df_summary[col] = df_summary[col].map(lambda x: f"{x:.4f}")
-            df_summary = df_summary[["Issuer", "AUP Rating", "# of Deals", "Avg Exception Rate (%)", "Min (%)", "Max (%)"]]
+            if _is_mbs_tab3 and "grade_a_pct" in df_filtered.columns and df_filtered["grade_a_pct"].notna().any():
+                df_summary = (
+                    df_filtered.dropna(subset=["grade_a_pct"])
+                    .groupby("Issuer")
+                    .agg(
+                        **{"Avg A%": ("grade_a_pct", "mean"),
+                           "Avg B%": ("grade_b_pct", "mean"),
+                           "Avg C%": ("grade_c_pct", "mean"),
+                           "Avg D%": ("grade_d_pct", "mean"),
+                           "# of Deals": ("grade_a_pct", "count")}
+                    )
+                    .reset_index()
+                    .sort_values("Issuer")
+                )
+                for gc in ["Avg A%", "Avg B%", "Avg C%", "Avg D%"]:
+                    df_summary[gc] = df_summary[gc].apply(lambda x: f"{x:.1f}")
+            else:
+                df_summary = (
+                    df_filtered.dropna(subset=["exception_rate_pct"])
+                    .groupby("Issuer")["exception_rate_pct"]
+                    .agg(Avg="mean", Min="min", Max="max", Count="count")
+                    .reset_index()
+                    .rename(columns={
+                        "Avg": "Avg Exception Rate (%)",
+                        "Min": "Min (%)",
+                        "Max": "Max (%)",
+                        "Count": "# of Deals",
+                    })
+                    .sort_values("Issuer")
+                )
+            if not (_is_mbs_tab3 and "grade_a_pct" in df_filtered.columns and df_filtered["grade_a_pct"].notna().any()):
+                # ── AUP Rating: computed before formatting so values are numeric ──
+                def _aup_score(row):
+                    avg = float(row["Avg Exception Rate (%)"])
+                    mx  = float(row["Max (%)"])
+                    cnt = int(row["# of Deals"])
+                    rs = 60 if avg==0 else 55 if avg<0.5 else 48 if avg<1 else 40 if avg<2 else 30 if avg<4 else 20 if avg<7 else 10 if avg<10 else 0
+                    sp = mx - avg
+                    cs = 20 if sp<0.5 else 17 if sp<1 else 13 if sp<2 else 8 if sp<4 else 4
+                    ts = 20 if cnt>=10 else 17 if cnt>=7 else 14 if cnt>=5 else 10 if cnt>=3 else 7 if cnt>=2 else 4
+                    t  = rs + cs + ts
+                    if t >= 92 and avg == 0 and cnt >= 10:
+                        rating, cls = "AAA", "r-aaa"
+                    else:
+                        t = min(t, 91)
+                        if   t >= 90: rating, cls = "AA+",  "r-aa"
+                        elif t >= 87: rating, cls = "AA",   "r-aa"
+                        elif t >= 84: rating, cls = "AA-",  "r-aa"
+                        elif t >= 82: rating, cls = "A+",   "r-a"
+                        elif t >= 79: rating, cls = "A",    "r-a"
+                        elif t >= 76: rating, cls = "A-",   "r-a"
+                        elif t >= 74: rating, cls = "BBB+", "r-bbb"
+                        elif t >= 71: rating, cls = "BBB",  "r-bbb"
+                        elif t >= 68: rating, cls = "BBB-", "r-bbb"
+                        elif t >= 65: rating, cls = "BB+",  "r-bb"
+                        elif t >= 61: rating, cls = "BB",   "r-bb"
+                        elif t >= 58: rating, cls = "BB-",  "r-bb"
+                        elif t >= 55: rating, cls = "B+",   "r-b"
+                        elif t >= 51: rating, cls = "B",    "r-b"
+                        elif t >= 48: rating, cls = "B-",   "r-b"
+                        elif t >= 45: rating, cls = "CCC+", "r-ccc"
+                        elif t >= 41: rating, cls = "CCC",  "r-ccc"
+                        elif t >= 38: rating, cls = "CCC-", "r-ccc"
+                        elif t >= 28: rating, cls = "CC",   "r-cc"
+                        else:         rating, cls = "C",    "r-c"
+                    return f'<span class="rating-badge {cls}">{rating}</span>'
+                df_summary["AUP Rating"] = df_summary.apply(_aup_score, axis=1)
+                for col in ["Avg Exception Rate (%)", "Min (%)", "Max (%)"]:
+                    df_summary[col] = df_summary[col].map(lambda x: f"{x:.4f}")
+                df_summary = df_summary[["Issuer", "AUP Rating", "# of Deals", "Avg Exception Rate (%)", "Min (%)", "Max (%)"]]
 
             st.html(_table_html(df_summary))
 
@@ -2061,12 +2078,11 @@ with tab3:
             )
 
             _is_mbs_tab3 = _cur_type in ("nqm", "second_lien", "npl", "sfr", "rtl", "mortgage")
-            _has_grades = "grade_a_pct" in df_filtered.columns and df_filtered["grade_a_pct"].notna().any()
 
             df_filtered["deal_name"] = df_filtered["deal_name"].fillna("—")
             df_filtered["aup_provider"] = df_filtered["aup_provider"].fillna("—")
 
-            if _is_mbs_tab3 and _has_grades:
+            if _is_mbs_tab3 and "grade_a_pct" in df_filtered.columns:
                 display_cols = ["Issuer", "Asset Type", "deal_name", "filed_date", "aup_provider",
                                 "pool_size", "sample_size",
                                 "grade_a_pct", "grade_b_pct", "grade_c_pct", "grade_d_pct"]
