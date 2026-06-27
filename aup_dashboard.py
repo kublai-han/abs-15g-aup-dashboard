@@ -1139,7 +1139,9 @@ document.addEventListener('click', function(e) {
 _COL_RIGHT = {"Pool Size", "Sample", "Fields", "Findings", "Finding %",
               "Avg Exception Rate (%)", "Min (%)", "Max (%)", "# of Deals"}
 # Columns that use center alignment (headers + cells)
-_COL_CENTER = {"AUP Rating", "# of Deals", "Avg Exception Rate (%)", "Min (%)", "Max (%)"}
+_COL_CENTER = {"AUP Rating", "Collateral Rating", "# of Deals",
+               "Avg Exception Rate (%)", "Min (%)", "Max (%)",
+               "A%", "B%", "C%", "D%", "Avg A%", "Avg B%", "Avg C%", "Avg D%"}
 # Columns that must not wrap
 _COL_NOWRAP = {"Filing Date", "Trust Series"}
 
