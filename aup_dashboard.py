@@ -60,6 +60,11 @@ SECTOR_BADGES: dict[str, tuple[str, str]] = {
     "auto":                ("AUTO", "#2563eb"),
     "student_loan":        ("STUD", "#059669"),
     "mortgage":            ("RMBS", "#d97706"),
+    "nqm":                 ("NQM",  "#d97706"),
+    "second_lien":         ("2ND",  "#b45309"),
+    "npl":                 ("NPL",  "#92400e"),
+    "sfr":                 ("SFR",  "#78350f"),
+    "rtl":                 ("RTL",  "#a16207"),
     "small_business_loan": ("SMB",  "#db2777"),
     "credit_card":         ("CC",   "#0ea5e9"),
 }
@@ -69,6 +74,11 @@ ASSET_TYPE_LABELS: dict[str, str] = {
     "auto":                "Auto",
     "student_loan":        "Student Loan",
     "mortgage":            "Mortgage",
+    "nqm":                 "Non-QM Mortgage",
+    "second_lien":         "Second Lien",
+    "npl":                 "Non-Performing Loan",
+    "sfr":                 "Single Family Rental",
+    "rtl":                 "Residential Transition Loan",
     "small_business_loan": "Small Business Loan",
     "credit_card":         "Credit Card",
 }
@@ -88,11 +98,15 @@ NAV_STRUCTURE: dict[str, dict] = {
     "mbs": {
         "label": "Mortgage Backed Securities", "short": "MBS", "color": "#2563eb",
         "subs": [
-            {"key": "agency",  "label": "Agency MBS",             "issuer_type": "agency",   "has_data": False},
-            {"key": "crt",     "label": "Credit Risk Transfer",   "issuer_type": "crt",      "has_data": False},
-            {"key": "hei",     "label": "Home Equity Investments","issuer_type": "hei",      "has_data": False},
-            {"key": "nqm",     "label": "Non-Qualified Mortgage", "issuer_type": "mortgage", "has_data": False},
-            {"key": "cmbs",    "label": "Commercial MBS",         "issuer_type": "cmbs",     "has_data": False},
+            {"key": "nqm",           "label": "Non-Qualified Mortgage",       "issuer_type": "nqm",           "has_data": False},
+            {"key": "second_lien",   "label": "Second Lien",                  "issuer_type": "second_lien",   "has_data": False},
+            {"key": "npl",           "label": "Non-Performing Loans",         "issuer_type": "npl",           "has_data": False},
+            {"key": "sfr",           "label": "Single Family Rental",         "issuer_type": "sfr",           "has_data": False},
+            {"key": "rtl",           "label": "Residential Transition Loans", "issuer_type": "rtl",           "has_data": False},
+            {"key": "agency",        "label": "Agency MBS",                   "issuer_type": "agency",        "has_data": False},
+            {"key": "crt",           "label": "Credit Risk Transfer",         "issuer_type": "crt",           "has_data": False},
+            {"key": "hei",           "label": "Home Equity Investments",      "issuer_type": "hei",           "has_data": False},
+            {"key": "cmbs",          "label": "Commercial MBS",               "issuer_type": "cmbs",          "has_data": False},
         ],
     },
     "hyc": {
@@ -116,8 +130,10 @@ NAV_STRUCTURE: dict[str, dict] = {
 
 _SUBCAT_ICONS: dict[str, str] = {
     "auto": "🚗", "credit_card": "💳", "consumer_loans": "👤",
-    "student_loans": "🎓", "esoteric": "⚡", "agency": "🏛️", "crt": "🛡️",
-    "hei": "🏠", "nqm": "🏡", "cmbs": "🏢", "hy_bonds": "📈",
+    "student_loans": "🎓", "esoteric": "⚡",
+    "nqm": "🏡", "second_lien": "🔗", "npl": "📋", "sfr": "🏘️", "rtl": "🔨",
+    "agency": "🏛️", "crt": "🛡️",
+    "hei": "🏠", "cmbs": "🏢", "hy_bonds": "📈",
     "lev_loans": "💰", "clo": "🔗", "bdc": "💼", "ig_bonds": "🏅",
     "ig_loans": "🤝", "covered": "🔒",
 }
@@ -131,6 +147,10 @@ _SUBCAT_DESCS: dict[str, str] = {
     "crt": "GSE credit risk sharing transactions",
     "hei": "Home equity investment products",
     "nqm": "Non-QM and alternative mortgage",
+    "second_lien": "Second lien and HELOC securitizations",
+    "npl": "Non-performing and re-performing loan pools",
+    "sfr": "Single family rental securitizations",
+    "rtl": "Fix-and-flip and bridge loan securitizations",
     "cmbs": "Commercial real estate backed",
     "hy_bonds": "Below investment-grade corporate bonds",
     "lev_loans": "Syndicated leveraged loans",
