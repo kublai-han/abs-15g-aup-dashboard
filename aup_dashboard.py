@@ -1837,6 +1837,7 @@ with tab3:
             _no_data_banner()
         else:
             df = pd.DataFrame(all_results)
+            _is_mbs_tab3 = _cur_type in ("nqm", "second_lien", "npl", "sfr", "rtl", "mortgage")
             df["filed_date"] = pd.to_datetime(df["filed_date"], errors="coerce")
             df["exception_rate_pct"] = df["exception_rate"].apply(
                 lambda x: round(x * 100, 4) if pd.notna(x) else 0.0
@@ -2077,7 +2078,6 @@ with tab3:
                 unsafe_allow_html=True,
             )
 
-            _is_mbs_tab3 = _cur_type in ("nqm", "second_lien", "npl", "sfr", "rtl", "mortgage")
 
             df_filtered["deal_name"] = df_filtered["deal_name"].fillna("—")
             df_filtered["aup_provider"] = df_filtered["aup_provider"].fillna("—")
