@@ -334,6 +334,30 @@ ISSUERS.update(NQM_ISSUERS)
 # Mortgage Backed Securities — Second Lien
 # ---------------------------------------------------------------------------
 SECOND_LIEN_ISSUERS = {
+    "figure_heloc": {
+        "name": "Figure Lending (FIGRE Trust)",
+        "cik": "0001970036",   # Figure HELOC Master Depositor Trust — 43 filings, KPMG AUPs
+        "type": "second_lien",
+        "active": True,
+    },
+    "achieve_he": {
+        "name": "Achieve Home Equity (ACHM Trust)",
+        # Two depositor entities:
+        #   0001889966  Sutton Funding LLC — primary depositor, 40 filings, AMC Diligence AUPs
+        #   0002020165  Lendage, LLC — secondary depositor, 5 filings
+        "ciks": ["0001889966", "0002020165"],
+        "type": "second_lien",
+        "active": True,
+    },
+    "woodward_rckt": {
+        "name": "Woodward Capital (RCKT Trust)",
+        # Two depositor entities:
+        #   0001787426  WCM1 LLC — primary depositor, 98 filings, EY AUPs
+        #   0002076571  WCMPL LLC — secondary depositor, 5 filings
+        "ciks": ["0001787426", "0002076571"],
+        "type": "second_lien",
+        "active": True,
+    },
     "cascade_funding": {
         "name": "Cascade Funding Mortgage",
         "cik": "0001796407",   # Cascade Funding Mortgage Depositor HB, LLC — 34 filings
