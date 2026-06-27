@@ -1345,7 +1345,8 @@ if nav_sub and _sub_info:
         f'</div>',
         unsafe_allow_html=True,
     )
-    _skeys = [s["key"] for s in _section["subs"]]
+    _active_subs = [s for s in _section["subs"] if s.get("has_data")]
+    _skeys = [s["key"] for s in _active_subs]
     _scols = st.columns(len(_skeys), gap="small")
     _active_sub_idx = (_skeys.index(nav_sub) + 1) if nav_sub in _skeys else 0
     st.markdown(f"""<style>
@@ -1353,13 +1354,10 @@ if nav_sub and _sub_info:
     color:#a78bfa!important;border-bottom-color:#7b5ea7!important;font-weight:600!important;
 }}
 </style>""", unsafe_allow_html=True)
-    for _si, _s in enumerate(_section["subs"]):
+    for _si, _s in enumerate(_active_subs):
         with _scols[_si]:
-            if _s.get("has_data"):
-                if st.button(_s["label"], key=f"snav_{_s['key']}", use_container_width=True):
-                    _go(nav_main, _s["key"])
-            else:
-                st.button(_s["label"], key=f"snav_{_s['key']}", use_container_width=True, disabled=True)
+            if st.button(_s["label"], key=f"snav_{_s['key']}", use_container_width=True):
+                _go(nav_main, _s["key"])
             if _si == 0:
                 st.markdown('<span class="snav-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
 
