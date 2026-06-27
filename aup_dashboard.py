@@ -62,6 +62,9 @@ SECTOR_BADGES: dict[str, tuple[str, str]] = {
     "mortgage":            ("RMBS", "#d97706"),
     "nqm":                 ("NQM",  "#d97706"),
     "second_lien":         ("2ND",  "#b45309"),
+    "rpl":                 ("RPL",  "#c2410c"),
+    "prime_jumbo":         ("PJ",   "#0d9488"),
+    "inv_property":        ("INV",  "#7c3aed"),
     "npl":                 ("NPL",  "#92400e"),
     "sfr":                 ("SFR",  "#78350f"),
     "rtl":                 ("RTL",  "#a16207"),
@@ -76,6 +79,9 @@ ASSET_TYPE_LABELS: dict[str, str] = {
     "mortgage":            "Mortgage",
     "nqm":                 "Non-QM Mortgage",
     "second_lien":         "Second Lien",
+    "rpl":                 "Re-Performing Loan",
+    "prime_jumbo":         "Prime Jumbo",
+    "inv_property":        "Investment Property",
     "npl":                 "Non-Performing Loan",
     "sfr":                 "Single Family Rental",
     "rtl":                 "Residential Transition Loan",
@@ -100,9 +106,12 @@ NAV_STRUCTURE: dict[str, dict] = {
         "subs": [
             {"key": "nqm",           "label": "Non-Qualified Mortgage",       "issuer_type": "nqm",           "has_data": True},
             {"key": "second_lien",   "label": "Second Lien",                  "issuer_type": "second_lien",   "has_data": True},
+            {"key": "rpl",           "label": "Re-Performing Loans",          "issuer_type": "rpl",           "has_data": True},
+            {"key": "prime_jumbo",   "label": "Prime Jumbo",                  "issuer_type": "prime_jumbo",   "has_data": True},
+            {"key": "inv_property",  "label": "Investment Properties",        "issuer_type": "inv_property",  "has_data": True},
             {"key": "npl",           "label": "Non-Performing Loans",         "issuer_type": "npl",           "has_data": True},
             {"key": "sfr",           "label": "Single Family Rental",         "issuer_type": "sfr",           "has_data": False},
-            {"key": "rtl",           "label": "Residential Transition Loans", "issuer_type": "rtl",           "has_data": True},
+            {"key": "rtl",           "label": "Residential Transition Loans", "issuer_type": "rtl",           "has_data": False},
             {"key": "agency",        "label": "Agency MBS",                   "issuer_type": "agency",        "has_data": False},
             {"key": "crt",           "label": "Credit Risk Transfer",         "issuer_type": "crt",           "has_data": False},
             {"key": "hei",           "label": "Home Equity Investments",      "issuer_type": "hei",           "has_data": False},
@@ -131,7 +140,7 @@ NAV_STRUCTURE: dict[str, dict] = {
 _SUBCAT_ICONS: dict[str, str] = {
     "auto": "🚗", "credit_card": "💳", "consumer_loans": "👤",
     "student_loans": "🎓", "esoteric": "⚡",
-    "nqm": "🏡", "second_lien": "🔗", "npl": "📋", "sfr": "🏘️", "rtl": "🔨",
+    "nqm": "🏡", "second_lien": "🔗", "rpl": "🔄", "prime_jumbo": "🏠", "inv_property": "🏢", "npl": "📋", "sfr": "🏘️", "rtl": "🔨",
     "agency": "🏛️", "crt": "🛡️",
     "hei": "🏠", "cmbs": "🏢", "hy_bonds": "📈",
     "lev_loans": "💰", "clo": "🔗", "bdc": "💼", "ig_bonds": "🏅",
@@ -148,7 +157,10 @@ _SUBCAT_DESCS: dict[str, str] = {
     "hei": "Home equity investment products",
     "nqm": "Non-QM and alternative mortgage",
     "second_lien": "Second lien and HELOC securitizations",
-    "npl": "Non-performing and re-performing loan pools",
+    "rpl": "Re-performing mortgage loan pools",
+    "prime_jumbo": "Prime jumbo residential mortgage",
+    "inv_property": "Investment property mortgage loans",
+    "npl": "Non-performing mortgage loan pools",
     "sfr": "Single family rental securitizations",
     "rtl": "Fix-and-flip and bridge loan securitizations",
     "cmbs": "Commercial real estate backed",
@@ -1781,7 +1793,7 @@ with tab2:
             unsafe_allow_html=True,
         )
     else:
-        _is_mbs = _cur_type in ("nqm", "second_lien", "npl", "sfr", "rtl", "mortgage")
+        _is_mbs = _cur_type in ("nqm", "second_lien", "rpl", "prime_jumbo", "inv_property", "npl", "sfr", "rtl", "mortgage")
         result_rows = []
         for r in aup_results:
             pool_raw = r.get("pool_size")
@@ -1839,7 +1851,7 @@ with tab3:
             _no_data_banner()
         else:
             df = pd.DataFrame(all_results)
-            _is_mbs_tab3 = _cur_type in ("nqm", "second_lien", "npl", "sfr", "rtl", "mortgage")
+            _is_mbs_tab3 = _cur_type in ("nqm", "second_lien", "rpl", "prime_jumbo", "inv_property", "npl", "sfr", "rtl", "mortgage")
             df["filed_date"] = pd.to_datetime(df["filed_date"], errors="coerce")
             df["exception_rate_pct"] = df["exception_rate"].apply(
                 lambda x: round(x * 100, 4) if pd.notna(x) else 0.0
