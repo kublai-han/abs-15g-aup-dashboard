@@ -101,7 +101,7 @@ NAV_STRUCTURE: dict[str, dict] = {
             {"key": "nqm",           "label": "Non-Qualified Mortgage",       "issuer_type": "nqm",           "has_data": True},
             {"key": "second_lien",   "label": "Second Lien",                  "issuer_type": "second_lien",   "has_data": True},
             {"key": "npl",           "label": "Non-Performing Loans",         "issuer_type": "npl",           "has_data": True},
-            {"key": "sfr",           "label": "Single Family Rental",         "issuer_type": "sfr",           "has_data": True},
+            {"key": "sfr",           "label": "Single Family Rental",         "issuer_type": "sfr",           "has_data": False},
             {"key": "rtl",           "label": "Residential Transition Loans", "issuer_type": "rtl",           "has_data": True},
             {"key": "agency",        "label": "Agency MBS",                   "issuer_type": "agency",        "has_data": False},
             {"key": "crt",           "label": "Credit Risk Transfer",         "issuer_type": "crt",           "has_data": False},
@@ -1978,12 +1978,12 @@ with tab3:
                         else:         rating, cls = "C",    "r-c"
                     return f'<span class="rating-badge {cls}">{rating}</span>'
 
-                df_summary["TPR Rating"] = df_summary.apply(_mbs_score, axis=1)
+                df_summary["Collateral Rating"] = df_summary.apply(_mbs_score, axis=1)
                 df_summary["Avg A%"] = df_summary["_avg_a"].apply(lambda x: f"{x:.1f}")
                 df_summary["Avg B%"] = df_summary["_avg_b"].apply(lambda x: f"{x:.1f}")
                 df_summary["Avg C%"] = df_summary["_avg_c"].apply(lambda x: f"{x:.1f}")
                 df_summary["Avg D%"] = df_summary["_avg_d"].apply(lambda x: f"{x:.1f}")
-                df_summary = df_summary[["Issuer", "TPR Rating", "# of Deals", "Avg A%", "Avg B%", "Avg C%", "Avg D%"]]
+                df_summary = df_summary[["Issuer", "Collateral Rating", "# of Deals", "Avg A%", "Avg B%", "Avg C%", "Avg D%"]]
             else:
                 df_summary = (
                     df_filtered.dropna(subset=["exception_rate_pct"])
@@ -2044,11 +2044,6 @@ with tab3:
             st.markdown("<br>", unsafe_allow_html=True)
 
             # --- Trend chart ---
-            st.markdown(
-                '<div class="finsight-section-title">Exception Rate Trend Over Time</div>',
-                unsafe_allow_html=True,
-            )
-
             issuers_with_data = sorted(df_filtered["Issuer"].dropna().unique())
             default_sel = issuers_with_data
 
@@ -2060,47 +2055,92 @@ with tab3:
                 label_visibility="collapsed",
             )
 
-            df_trend = (
-                df_filtered[df_filtered["Issuer"].isin(selected_trend_issuers)]
-                .dropna(subset=["filed_date", "Issuer"])
-                .groupby(["Issuer", "filed_date"], as_index=False)["exception_rate_pct"]
-                .mean()
-                .sort_values("filed_date")
-            )
+            _df_trend_base = df_filtered[df_filtered["Issuer"].isin(selected_trend_issuers)].dropna(subset=["filed_date", "Issuer"])
 
-            if df_trend.empty:
+            if _is_mbs_tab3 and "grade_c_pct" in df_filtered.columns and df_filtered["grade_c_pct"].notna().any():
+                # ── MBS: C% trend and D% trend ──
+                for _grade_col, _grade_label in [("grade_c_pct", "C% (Material Exceptions)"), ("grade_d_pct", "D% (Fails)")]:
+                    st.markdown(
+                        f'<div class="finsight-section-title">{_grade_label} Trend Over Time</div>',
+                        unsafe_allow_html=True,
+                    )
+                    df_trend = (
+                        _df_trend_base.dropna(subset=[_grade_col])
+                        .groupby(["Issuer", "filed_date"], as_index=False)[_grade_col]
+                        .mean()
+                        .sort_values("filed_date")
+                    )
+                    if df_trend.empty:
+                        st.markdown('<div class="info-box">No trend data for the selected issuers.</div>', unsafe_allow_html=True)
+                    else:
+                        df_trend_plot = df_trend[["Issuer", "filed_date", _grade_col]].copy()
+                        df_trend_plot["Issuer"] = df_trend_plot["Issuer"].astype(str)
+                        df_trend_plot["filed_date"] = pd.to_datetime(df_trend_plot["filed_date"], errors="coerce")
+                        df_trend_plot[_grade_col] = pd.to_numeric(df_trend_plot[_grade_col], errors="coerce").fillna(0.0)
+                        df_trend_plot = df_trend_plot.dropna(subset=["filed_date"])
+                        _trend_issuers = df_trend_plot["Issuer"].unique().tolist()
+                        _palette_iter = iter([c for c in ISSUER_PALETTE if c not in ISSUER_COLOR_MAP.values()])
+                        _trend_color_map = {iss: ISSUER_COLOR_MAP.get(iss, next(_palette_iter, "#cccccc")) for iss in _trend_issuers}
+                        fig_trend = px.line(
+                            df_trend_plot, x="filed_date", y=_grade_col, color="Issuer",
+                            markers=True,
+                            hover_data={"filed_date": False, "Issuer": False, _grade_col: ":.2f"},
+                            labels={"filed_date": "Filing Date", _grade_col: _grade_label},
+                            color_discrete_map=_trend_color_map,
+                        )
+                        fig_trend.update_layout(**_dark_plotly_layout())
+                        fig_trend.update_layout(
+                            legend=dict(orientation="h", y=-0.18, bgcolor="#1e1e3f", bordercolor="#2d2d5e", borderwidth=1, font=dict(color="#94a3b8", size=10)),
+                            height=380,
+                        )
+                        fig_trend.update_traces(line=dict(width=2), marker=dict(size=6))
+                        st.plotly_chart(fig_trend, use_container_width=True)
+                    st.markdown("<br>", unsafe_allow_html=True)
+            else:
+                # ── ABS: Exception Rate trend ──
                 st.markdown(
-                    '<div class="info-box">No trend data for the selected issuers.</div>',
+                    '<div class="finsight-section-title">Exception Rate Trend Over Time</div>',
                     unsafe_allow_html=True,
                 )
-            else:
-                df_trend_plot = df_trend[["Issuer", "filed_date", "exception_rate_pct"]].copy()
-                df_trend_plot["Issuer"] = df_trend_plot["Issuer"].astype(str)
-                df_trend_plot["filed_date"] = pd.to_datetime(df_trend_plot["filed_date"], errors="coerce")
-                df_trend_plot["exception_rate_pct"] = pd.to_numeric(df_trend_plot["exception_rate_pct"], errors="coerce").fillna(0.0)
-                df_trend_plot = df_trend_plot.dropna(subset=["filed_date"])
-                # Build color map: use ISSUER_COLOR_MAP for known issuers,
-                # fall back to palette colors for any unlisted ones.
-                _trend_issuers = df_trend_plot["Issuer"].unique().tolist()
-                _palette_iter = iter(
-                    [c for c in ISSUER_PALETTE if c not in ISSUER_COLOR_MAP.values()]
+
+                df_trend = (
+                    _df_trend_base
+                    .groupby(["Issuer", "filed_date"], as_index=False)["exception_rate_pct"]
+                    .mean()
+                    .sort_values("filed_date")
                 )
-                _trend_color_map = {
-                    iss: ISSUER_COLOR_MAP.get(iss, next(_palette_iter, "#cccccc"))
-                    for iss in _trend_issuers
-                }
-                fig_trend = px.line(
-                    df_trend_plot,
-                    x="filed_date",
-                    y="exception_rate_pct",
-                    color="Issuer",
-                    markers=True,
-                    hover_data={"filed_date": False, "Issuer": False, "exception_rate_pct": ":.4f"},
-                    labels={
-                        "filed_date": "Filing Date",
-                        "exception_rate_pct": "Avg Exception Rate (%)",
-                    },
-                    color_discrete_map=_trend_color_map,
+
+                if df_trend.empty:
+                    st.markdown(
+                        '<div class="info-box">No trend data for the selected issuers.</div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    df_trend_plot = df_trend[["Issuer", "filed_date", "exception_rate_pct"]].copy()
+                    df_trend_plot["Issuer"] = df_trend_plot["Issuer"].astype(str)
+                    df_trend_plot["filed_date"] = pd.to_datetime(df_trend_plot["filed_date"], errors="coerce")
+                    df_trend_plot["exception_rate_pct"] = pd.to_numeric(df_trend_plot["exception_rate_pct"], errors="coerce").fillna(0.0)
+                    df_trend_plot = df_trend_plot.dropna(subset=["filed_date"])
+                    _trend_issuers = df_trend_plot["Issuer"].unique().tolist()
+                    _palette_iter = iter(
+                        [c for c in ISSUER_PALETTE if c not in ISSUER_COLOR_MAP.values()]
+                    )
+                    _trend_color_map = {
+                        iss: ISSUER_COLOR_MAP.get(iss, next(_palette_iter, "#cccccc"))
+                        for iss in _trend_issuers
+                    }
+                    fig_trend = px.line(
+                        df_trend_plot,
+                        x="filed_date",
+                        y="exception_rate_pct",
+                        color="Issuer",
+                        markers=True,
+                        hover_data={"filed_date": False, "Issuer": False, "exception_rate_pct": ":.4f"},
+                        labels={
+                            "filed_date": "Filing Date",
+                            "exception_rate_pct": "Avg Exception Rate (%)",
+                        },
+                        color_discrete_map=_trend_color_map,
                 )
                 fig_trend.update_layout(**_dark_plotly_layout())
                 fig_trend.update_layout(

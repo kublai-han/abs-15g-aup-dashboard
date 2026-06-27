@@ -358,12 +358,6 @@ SECOND_LIEN_ISSUERS = {
         "type": "second_lien",
         "active": True,
     },
-    "cascade_funding": {
-        "name": "Cascade Funding Mortgage",
-        "cik": "0001796407",   # Cascade Funding Mortgage Depositor HB, LLC — 34 filings
-        "type": "second_lien",
-        "active": True,
-    },
 }
 
 ISSUERS.update(SECOND_LIEN_ISSUERS)
@@ -386,12 +380,6 @@ ISSUERS.update(NPL_ISSUERS)
 # Mortgage Backed Securities — Single Family Rental (SFR)
 # ---------------------------------------------------------------------------
 SFR_ISSUERS = {
-    "corevest_sfr": {
-        "name": "CoreVest (Redwood Trust)",
-        "cik": "0001719472",   # CoreVest American Finance Depositor LLC — 31 filings
-        "type": "sfr",
-        "active": True,
-    },
 }
 
 ISSUERS.update(SFR_ISSUERS)
