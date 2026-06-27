@@ -44,7 +44,7 @@ def _try_visionet(text: str) -> Optional[dict]:
     section = text[pos:pos+600]
 
     grades = re.findall(
-        r"Event Grade ([ABCD])\s+(\d+)\s+\$\s*[\d,]+\.?\d*\s+([\d.]+)\s*%",
+        r"Event Grade ([ABCD])\s+(\d+)\s+\$\s*[\d,\-]*\.?\d*\s+([\d.]+)\s*%",
         section,
     )
     if len(grades) < 4:
