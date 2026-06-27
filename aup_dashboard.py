@@ -1779,24 +1779,40 @@ with tab2:
             unsafe_allow_html=True,
         )
     else:
+        _is_mbs = _cur_type in ("nqm", "second_lien", "npl", "sfr", "rtl", "mortgage")
         result_rows = []
         for r in aup_results:
-            exc_rate = r.get("exception_rate")
-            exc_rate_str = f"{exc_rate * 100:.2f}%" if exc_rate is not None else "—"
             pool_raw = r.get("pool_size")
             pool_str = f"{int(float(pool_raw)):,}" if pool_raw and str(pool_raw).strip() not in ("", "—", "None", "nan") else "—"
-            fields_raw = r.get("fields_count")
-            result_rows.append({
-                "Trust Series": r.get("deal_name") or "—",
-                "Filing Date": _fmt_date(r.get("filed_date")),
-                "Auditor": r.get("aup_provider") or "—",
-                "Pool Size": pool_str,
-                "Sample": (str(int(float(s))) if (s := str(r.get("sample_size") or "")).strip() not in ("", "None", "nan", "0") else "—"),
-                "Fields": str(int(fields_raw)) if fields_raw is not None else "—",
-                "Findings": r.get("exception_count") if r.get("exception_count") is not None else "—",
-                "Finding %": exc_rate_str,
-                "Finding Details": _fmt_finding(r.get("finding")),
-            })
+            sample_str = str(int(float(s))) if (s := str(r.get("sample_size") or "")).strip() not in ("", "None", "nan", "0") else "—"
+
+            if _is_mbs and r.get("grade_a_pct") is not None:
+                result_rows.append({
+                    "Trust Series": r.get("deal_name") or "—",
+                    "Filing Date": _fmt_date(r.get("filed_date")),
+                    "Reviewer": r.get("aup_provider") or "—",
+                    "Pool Size": pool_str,
+                    "Sample": sample_str,
+                    "A%": f"{r['grade_a_pct']:.1f}",
+                    "B%": f"{r['grade_b_pct']:.1f}",
+                    "C%": f"{r['grade_c_pct']:.1f}",
+                    "D%": f"{r['grade_d_pct']:.1f}",
+                })
+            else:
+                exc_rate = r.get("exception_rate")
+                exc_rate_str = f"{exc_rate * 100:.2f}%" if exc_rate is not None else "—"
+                fields_raw = r.get("fields_count")
+                result_rows.append({
+                    "Trust Series": r.get("deal_name") or "—",
+                    "Filing Date": _fmt_date(r.get("filed_date")),
+                    "Auditor": r.get("aup_provider") or "—",
+                    "Pool Size": pool_str,
+                    "Sample": sample_str,
+                    "Fields": str(int(fields_raw)) if fields_raw is not None else "—",
+                    "Findings": r.get("exception_count") if r.get("exception_count") is not None else "—",
+                    "Finding %": exc_rate_str,
+                    "Finding Details": _fmt_finding(r.get("finding")),
+                })
         df_res = pd.DataFrame(result_rows)
         st.html(_table_html(df_res))
 
@@ -2044,51 +2060,77 @@ with tab3:
                 unsafe_allow_html=True,
             )
 
+            _is_mbs_tab3 = _cur_type in ("nqm", "second_lien", "npl", "sfr", "rtl", "mortgage")
+            _has_grades = "grade_a_pct" in df_filtered.columns and df_filtered["grade_a_pct"].notna().any()
+
             df_filtered["deal_name"] = df_filtered["deal_name"].fillna("—")
             df_filtered["aup_provider"] = df_filtered["aup_provider"].fillna("—")
-            display_cols = ["Issuer", "Asset Type", "deal_name", "filed_date", "aup_provider",
-                            "pool_size", "sample_size", "fields_count",
-                            "exception_count", "exception_rate_pct", "finding"]
-            df_display = df_filtered[display_cols].copy()
-            df_display.columns = [
-                "Company", "Asset Type", "Trust Series", "Filing Date", "Auditor",
-                "Pool Size", "Sample", "Fields",
-                "Findings", "Finding %", "Finding Details",
-            ]
-            df_display["Finding Details"] = df_display["Finding Details"].apply(_fmt_finding)
-            filing_date_iso = df_display["Filing Date"].apply(
-                lambda x: x.strftime("%Y-%m-%d") if pd.notna(x) else ""
-            ).tolist()
-            df_display["Filing Date"] = df_display["Filing Date"].apply(
-                lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "—"
-            )
-            df_display["Pool Size"] = df_display["Pool Size"].apply(
-                lambda x: f"{int(float(x)):,}" if x is not None and str(x).strip() not in ("", "—", "None", "nan") else "—"
-            )
-            df_display["Sample"] = df_display["Sample"].apply(
-                lambda x: (str(int(float(x))) if str(x).strip() not in ("", "None", "nan", "0") and pd.notna(x) else "—")
-            )
-            df_display["Fields"] = df_display["Fields"].apply(
-                lambda x: str(int(x)) if pd.notna(x) and x not in (None, "") else "—"
-            )
-            df_display["Findings"] = df_display["Findings"].apply(
-                lambda x: str(int(x)) if pd.notna(x) and x not in (None, "") else "—"
-            )
-            # When exception_count is confirmed 0, Finding Details should be blank.
-            # The Findings column already shows "0" which confirms clean — no need
-            # for detail text that could be misread as an actual finding.
-            confirmed_clean = df_display["Findings"] == "0"
-            df_display.loc[confirmed_clean, "Finding Details"] = "—"
-            # Don't show "No exceptions noted" when exception_count > 0 — the finding
-            # text exists but was too short/noisy to survive the formatter's filters.
-            misleading = (
-                (df_display["Finding Details"] == "No exceptions noted")
-                & ~df_display["Findings"].isin(["—", "0"])
-            )
-            df_display.loc[misleading, "Finding Details"] = "—"
-            df_display["Finding %"] = df_display["Finding %"].apply(
-                lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0.0 else ("0.00%" if x == 0.0 else "—")
-            )
+
+            if _is_mbs_tab3 and _has_grades:
+                display_cols = ["Issuer", "Asset Type", "deal_name", "filed_date", "aup_provider",
+                                "pool_size", "sample_size",
+                                "grade_a_pct", "grade_b_pct", "grade_c_pct", "grade_d_pct"]
+                df_display = df_filtered[display_cols].copy()
+                df_display.columns = [
+                    "Company", "Asset Type", "Trust Series", "Filing Date", "Reviewer",
+                    "Pool Size", "Sample",
+                    "A%", "B%", "C%", "D%",
+                ]
+                filing_date_iso = df_display["Filing Date"].apply(
+                    lambda x: x.strftime("%Y-%m-%d") if pd.notna(x) else ""
+                ).tolist()
+                df_display["Filing Date"] = df_display["Filing Date"].apply(
+                    lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "—"
+                )
+                df_display["Pool Size"] = df_display["Pool Size"].apply(
+                    lambda x: f"{int(float(x)):,}" if x is not None and str(x).strip() not in ("", "—", "None", "nan") else "—"
+                )
+                df_display["Sample"] = df_display["Sample"].apply(
+                    lambda x: (str(int(float(x))) if str(x).strip() not in ("", "None", "nan", "0") and pd.notna(x) else "—")
+                )
+                for gc in ["A%", "B%", "C%", "D%"]:
+                    df_display[gc] = df_display[gc].apply(
+                        lambda x: f"{x:.1f}" if pd.notna(x) else "—"
+                    )
+            else:
+                display_cols = ["Issuer", "Asset Type", "deal_name", "filed_date", "aup_provider",
+                                "pool_size", "sample_size", "fields_count",
+                                "exception_count", "exception_rate_pct", "finding"]
+                df_display = df_filtered[display_cols].copy()
+                df_display.columns = [
+                    "Company", "Asset Type", "Trust Series", "Filing Date", "Auditor",
+                    "Pool Size", "Sample", "Fields",
+                    "Findings", "Finding %", "Finding Details",
+                ]
+                df_display["Finding Details"] = df_display["Finding Details"].apply(_fmt_finding)
+                filing_date_iso = df_display["Filing Date"].apply(
+                    lambda x: x.strftime("%Y-%m-%d") if pd.notna(x) else ""
+                ).tolist()
+                df_display["Filing Date"] = df_display["Filing Date"].apply(
+                    lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "—"
+                )
+                df_display["Pool Size"] = df_display["Pool Size"].apply(
+                    lambda x: f"{int(float(x)):,}" if x is not None and str(x).strip() not in ("", "—", "None", "nan") else "—"
+                )
+                df_display["Sample"] = df_display["Sample"].apply(
+                    lambda x: (str(int(float(x))) if str(x).strip() not in ("", "None", "nan", "0") and pd.notna(x) else "—")
+                )
+                df_display["Fields"] = df_display["Fields"].apply(
+                    lambda x: str(int(x)) if pd.notna(x) and x not in (None, "") else "—"
+                )
+                df_display["Findings"] = df_display["Findings"].apply(
+                    lambda x: str(int(x)) if pd.notna(x) and x not in (None, "") else "—"
+                )
+                confirmed_clean = df_display["Findings"] == "0"
+                df_display.loc[confirmed_clean, "Finding Details"] = "—"
+                misleading = (
+                    (df_display["Finding Details"] == "No exceptions noted")
+                    & ~df_display["Findings"].isin(["—", "0"])
+                )
+                df_display.loc[misleading, "Finding Details"] = "—"
+                df_display["Finding %"] = df_display["Finding %"].apply(
+                    lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0.0 else ("0.00%" if x == 0.0 else "—")
+                )
             # Use components.html so JavaScript click events work (st.html iframes block them)
             tbl_height = min(40 + len(df_display) * 38 + 20, 600)
             components.html(_table_html(df_display, sortable=True, sort_overrides={"Filing Date": filing_date_iso}), height=tbl_height, scrolling=True)

@@ -518,7 +518,8 @@ def get_aup_results(
             p.description   AS procedure_description,
             p.findings_json AS finding,
             p.exception_count, p.pool_size, p.sample_size, p.exception_rate,
-            p.fields_count
+            p.fields_count,
+            p.grade_a_pct, p.grade_b_pct, p.grade_c_pct, p.grade_d_pct
         FROM procedures p
         JOIN filings f ON f.id = p.filing_id
         {where_clause}
