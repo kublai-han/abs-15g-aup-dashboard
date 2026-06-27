@@ -336,25 +336,43 @@ ISSUERS.update(NQM_ISSUERS)
 SECOND_LIEN_ISSUERS = {
     "figure_heloc": {
         "name": "Figure Lending (FIGRE Trust)",
-        "cik": "0001970036",   # Figure HELOC Master Depositor Trust — 43 filings, KPMG AUPs
+        "cik": "0001970036",   # Figure HELOC Master Depositor Trust — 43 filings
         "type": "second_lien",
         "active": True,
     },
     "achieve_he": {
         "name": "Achieve Home Equity (ACHM Trust)",
-        # Two depositor entities:
-        #   0001889966  Sutton Funding LLC — primary depositor, 40 filings, AMC Diligence AUPs
-        #   0002020165  Lendage, LLC — secondary depositor, 5 filings
         "ciks": ["0001889966", "0002020165"],
         "type": "second_lien",
         "active": True,
     },
     "woodward_rckt": {
         "name": "Woodward Capital (RCKT Trust)",
-        # Two depositor entities:
-        #   0001787426  WCM1 LLC — primary depositor, 98 filings, EY AUPs
-        #   0002076571  WCMPL LLC — secondary depositor, 5 filings
         "ciks": ["0001787426", "0002076571"],
+        "type": "second_lien",
+        "active": True,
+    },
+    "gs_mortgage": {
+        "name": "Goldman Sachs (GSMBS)",
+        "cik": "0000807641",   # GS MORTGAGE SECURITIES CORP — 220 filings, AMC reviews
+        "type": "second_lien",
+        "active": True,
+    },
+    "onslow_bay": {
+        "name": "Onslow Bay / Annaly (OBX Trust)",
+        "cik": "0001658638",   # Onslow Bay Funding LLC — 138 filings, AMC reviews
+        "type": "second_lien",
+        "active": True,
+    },
+    "citi_mortgage": {
+        "name": "Citigroup Mortgage (CMLTI)",
+        "cik": "0001257102",   # CITIGROUP MORTGAGE LOAN TRUST INC — 102 filings, AMC reviews
+        "type": "second_lien",
+        "active": True,
+    },
+    "vista_point": {
+        "name": "Vista Point Mortgage (VSTA)",
+        "cik": "0001802711",   # Vista Point Assets LLC — 22 filings, Clarifii reviews
         "type": "second_lien",
         "active": True,
     },
