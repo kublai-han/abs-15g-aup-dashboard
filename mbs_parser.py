@@ -147,7 +147,10 @@ def _try_amc_clarifii(text: str) -> Optional[dict]:
                 pcts = {}
                 sample = 0
                 for g, count, pct in grades[:4]:
-                    pcts[g] = float(pct)
+                    try:
+                        pcts[g] = float(pct.replace("..", "."))
+                    except ValueError:
+                        continue
                     sample += int(count)
                 if len(pcts) >= 4:
                     return {
@@ -172,7 +175,10 @@ def _try_amc_clarifii(text: str) -> Optional[dict]:
             sample = 0
             for g, count, pct in grades[:4]:
                 if g not in pcts:
-                    pcts[g] = float(pct)
+                    try:
+                        pcts[g] = float(pct.replace("..", "."))
+                    except ValueError:
+                        continue
                     sample += int(count)
             if len(pcts) >= 4:
                 return {

@@ -129,7 +129,9 @@ def main():
         SELECT f.id, f.issuer_key, f.cik, f.accession_no, f.filed_date,
                f.exhibit_url, f.deal_name, f.asset_type
         FROM filings f
+        JOIN procedures p ON p.filing_id = f.id
         WHERE f.asset_type IN ('nqm','second_lien','npl','sfr','rtl','mortgage')
+          AND p.grade_a_pct IS NULL
         ORDER BY f.issuer_key, f.filed_date DESC
     """).fetchall()
 
