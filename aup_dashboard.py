@@ -1394,7 +1394,7 @@ if not nav_sub:
     # CSS: make the card-row buttons look like the original .subcat-card design
     st.markdown("""<style>
 [data-testid="stHorizontalBlock"]:has(.card-sentinel) {
-    gap:.8rem!important; padding:0 0 .4rem!important; margin-top:-.5rem!important;
+    gap:.8rem!important; padding:0!important; margin-top:-1.2rem!important;
     align-items:stretch!important; flex-wrap:wrap!important;
 }
 [data-testid="stHorizontalBlock"]:has(.card-sentinel)
