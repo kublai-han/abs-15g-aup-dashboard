@@ -2104,6 +2104,7 @@ with tab3:
                         )
                         fig_trend.update_layout(**_dark_plotly_layout())
                         fig_trend.update_layout(
+                            title=None,
                             legend=dict(orientation="h", y=-0.18, bgcolor="#1e1e3f", bordercolor="#2d2d5e", borderwidth=1, font=dict(color="#94a3b8", size=10)),
                             height=380,
                         )
