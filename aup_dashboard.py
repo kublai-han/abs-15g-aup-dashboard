@@ -2074,10 +2074,6 @@ with tab3:
             if _is_mbs_tab3 and "grade_c_pct" in df_filtered.columns and df_filtered["grade_c_pct"].notna().any():
                 # ── MBS: C% trend and D% trend ──
                 for _grade_col, _grade_label in [("grade_c_pct", "C% Material, Exceptions Noted"), ("grade_d_pct", "D% Material Documentation Missing")]:
-                    st.markdown(
-                        f'<div class="finsight-section-title">{_grade_label} Trend Over Time</div>',
-                        unsafe_allow_html=True,
-                    )
                     df_trend = (
                         _df_trend_base.dropna(subset=[_grade_col])
                         .groupby(["Issuer", "filed_date"], as_index=False)[_grade_col]
@@ -2104,7 +2100,7 @@ with tab3:
                         )
                         fig_trend.update_layout(**_dark_plotly_layout())
                         fig_trend.update_layout(
-                            title=None,
+                            title=dict(text=f"{_grade_label} Trend Over Time", font=dict(color="#f1f5f9", size=14)),
                             legend=dict(orientation="h", y=-0.18, bgcolor="#1e1e3f", bordercolor="#2d2d5e", borderwidth=1, font=dict(color="#94a3b8", size=10)),
                             height=380,
                         )
