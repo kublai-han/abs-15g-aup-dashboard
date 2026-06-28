@@ -1449,27 +1449,30 @@ if not nav_sub:
 }
 </style>""", unsafe_allow_html=True)
 
-    _card_cols = st.columns(5, gap="small")
-    for _ci, _s in enumerate(_section["subs"]):
-        _icon = _SUBCAT_ICONS.get(_s["key"], "📋")
-        _desc = _SUBCAT_DESCS.get(_s["key"], "")
-        with _card_cols[_ci % 5]:
-            if _s.get("has_data"):
-                if st.button(
-                    f"{_icon}\n\n**{_s['label']}**\n\n{_desc}\n\n● Live Data",
-                    key=f"card_{_s['key']}",
-                    use_container_width=True,
-                ):
-                    _go(nav_main, _s["key"])
-            else:
-                st.button(
-                    f"{_icon}\n\n{_s['label']}\n\n{_desc}\n\nComing Soon",
-                    key=f"card_{_s['key']}",
-                    use_container_width=True,
-                    disabled=True,
-                )
-            if _ci == 0:
-                st.markdown('<span class="card-sentinel"></span><style>[data-testid~="stMarkdown"]:has(.card-sentinel){position:absolute!important;width:0!important;height:0!important;overflow:hidden!important;top:0!important;left:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
+    _subs_list = _section["subs"]
+    for _row_start in range(0, len(_subs_list), 5):
+        _row_subs = _subs_list[_row_start:_row_start + 5]
+        _card_cols = st.columns(5, gap="small")
+        for _ci, _s in enumerate(_row_subs):
+            _icon = _SUBCAT_ICONS.get(_s["key"], "📋")
+            _desc = _SUBCAT_DESCS.get(_s["key"], "")
+            with _card_cols[_ci]:
+                if _s.get("has_data"):
+                    if st.button(
+                        f"{_icon}\n\n**{_s['label']}**\n\n{_desc}\n\n● Live Data",
+                        key=f"card_{_s['key']}",
+                        use_container_width=True,
+                    ):
+                        _go(nav_main, _s["key"])
+                else:
+                    st.button(
+                        f"{_icon}\n\n{_s['label']}\n\n{_desc}\n\nComing Soon",
+                        key=f"card_{_s['key']}",
+                        use_container_width=True,
+                        disabled=True,
+                    )
+                if _row_start == 0 and _ci == 0:
+                    st.markdown('<span class="card-sentinel"></span><style>[data-testid~="stMarkdown"]:has(.card-sentinel){position:absolute!important;width:0!important;height:0!important;overflow:hidden!important;top:0!important;left:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
     st.stop()
 
 elif _sub_info is None:
