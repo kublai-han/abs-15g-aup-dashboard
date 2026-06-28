@@ -1166,9 +1166,9 @@ def _table_html(df: pd.DataFrame, sortable: bool = False, sort_overrides: dict =
         cells = ""
         for col, val in zip(df.columns, row):
             if col in _COL_CENTER:
-                style = ' style="text-align:center"'
+                style = ' style="text-align:center!important"'
             elif col in _COL_RIGHT:
-                style = ' style="text-align:right"'
+                style = ' style="text-align:right!important"'
             else:
                 style = ""
             if col in sort_overrides:
@@ -1185,9 +1185,9 @@ def _table_html(df: pd.DataFrame, sortable: bool = False, sort_overrides: dict =
             parts.append('class="sortable"')
         th_styles = []
         if col in _COL_CENTER:
-            th_styles.append("text-align:center")
+            th_styles.append("text-align:center!important")
         elif col in _COL_RIGHT:
-            th_styles.append("text-align:right")
+            th_styles.append("text-align:right!important")
         if col in _COL_NOWRAP:
             th_styles.append("white-space:nowrap")
         if th_styles:
