@@ -310,19 +310,49 @@ ISSUERS.update(STUDENT_LOAN_ISSUERS)
 NQM_ISSUERS = {
     "angel_oak": {
         "name": "Angel Oak Mortgage Trust",
-        "cik": "0001697970",   # Angel Oak Mortgage Trust I, LLC — 72 ABS-15G filings
+        "cik": "0001697970",   # Angel Oak Mortgage Trust I, LLC — 72 filings
         "type": "nqm",
         "active": True,
     },
     "mfa_nqm": {
         "name": "MFA Financial (Verus)",
-        "cik": "0001803775",   # MFRA NQM Depositor, LLC — 45 filings, AMC Diligence AUPs
+        "cik": "0001803775",   # MFRA NQM Depositor, LLC — 45 filings
         "type": "nqm",
         "active": True,
     },
     "ellington_nqm": {
         "name": "Ellington Financial Mortgage",
         "cik": "0001946154",   # EFMT Depositor LLC — 45 filings
+        "type": "nqm",
+        "active": True,
+    },
+    "acra": {
+        "name": "Acra Lending (ACRA Trust)",
+        "cik": "0001812383",   # Citadel Depositor, LLC — 9 filings, Consolidated Analytics
+        "type": "nqm",
+        "active": True,
+    },
+    "park_capital": {
+        "name": "Park Capital Management (PRKCM)",
+        "cik": "0001877944",   # Park Capital Management Depositor LLC — 24 filings, Clayton
+        "type": "nqm",
+        "active": True,
+    },
+    "jpmorgan_mortgage": {
+        "name": "JP Morgan Mortgage (JPMMT)",
+        "cik": "0001142786",   # J.P. Morgan Acceptance Corp II — 246 filings, AMC
+        "type": "nqm",
+        "active": True,
+    },
+    "colt": {
+        "name": "COLT Mortgage (Lone Star)",
+        "ciks": ["0001935056", "0001788771"],  # COLT Depositor III + II — 53 filings, AMC
+        "type": "nqm",
+        "active": True,
+    },
+    "santander_mortgage": {
+        "name": "Santander Mortgage (SAN)",
+        "cik": "0002058366",   # Santander Bank, N.A. — 18 filings, AMC
         "type": "nqm",
         "active": True,
     },
