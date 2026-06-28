@@ -1471,7 +1471,7 @@ if not nav_sub:
                         use_container_width=True,
                         disabled=True,
                     )
-                if _row_start == 0 and _ci == 0:
+                if _ci == 0:
                     st.markdown('<span class="card-sentinel"></span><style>[data-testid~="stMarkdown"]:has(.card-sentinel){position:absolute!important;width:0!important;height:0!important;overflow:hidden!important;top:0!important;left:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
     st.stop()
 
