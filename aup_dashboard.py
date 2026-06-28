@@ -2109,11 +2109,6 @@ with tab3:
                     st.markdown("<br>", unsafe_allow_html=True)
             else:
                 # ── ABS: Exception Rate trend ──
-                st.markdown(
-                    '<div class="finsight-section-title">Exception Rate Trend Over Time</div>',
-                    unsafe_allow_html=True,
-                )
-
                 df_trend = (
                     _df_trend_base
                     .groupby(["Issuer", "filed_date"], as_index=False)["exception_rate_pct"]
@@ -2155,6 +2150,7 @@ with tab3:
                 )
                 fig_trend.update_layout(**_dark_plotly_layout())
                 fig_trend.update_layout(
+                    title=dict(text="Exception Rate Trend Over Time", font=dict(color="#f1f5f9", size=14)),
                     legend=dict(
                         orientation="h", y=-0.18,
                         bgcolor="#1e1e3f", bordercolor="#2d2d5e", borderwidth=1,
