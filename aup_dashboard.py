@@ -2073,7 +2073,7 @@ with tab3:
 
             if _is_mbs_tab3 and "grade_c_pct" in df_filtered.columns and df_filtered["grade_c_pct"].notna().any():
                 # ── MBS: C% trend and D% trend ──
-                for _grade_col, _grade_label in [("grade_c_pct", "C% (Material Exceptions)"), ("grade_d_pct", "D% (Fails)")]:
+                for _grade_col, _grade_label in [("grade_c_pct", "C% Material, Exceptions Noted"), ("grade_d_pct", "D% Material Documentation Missing")]:
                     st.markdown(
                         f'<div class="finsight-section-title">{_grade_label} Trend Over Time</div>',
                         unsafe_allow_html=True,
