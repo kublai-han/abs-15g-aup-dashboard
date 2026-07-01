@@ -70,6 +70,10 @@ SECTOR_BADGES: dict[str, tuple[str, str]] = {
     "rtl":                 ("RTL",  "#a16207"),
     "small_business_loan": ("SMB",  "#db2777"),
     "credit_card":         ("CC",   "#0ea5e9"),
+    "aircraft":            ("AIR",  "#0891b2"),
+    "datacenter":          ("DC",   "#6366f1"),
+    "fiber":               ("FBR",  "#16a34a"),
+    "fleet_lease":         ("FLT",  "#ea580c"),
 }
 
 ASSET_TYPE_LABELS: dict[str, str] = {
@@ -87,6 +91,10 @@ ASSET_TYPE_LABELS: dict[str, str] = {
     "rtl":                 "Residential Transition Loan",
     "small_business_loan": "Small Business Loan",
     "credit_card":         "Credit Card",
+    "aircraft":            "Aircraft Receivables",
+    "datacenter":          "Datacenter",
+    "fiber":               "Fiber",
+    "fleet_lease":         "Fleet Lease",
 }
 
 # Top-level navigation tree — has_data controls landing card interactivity
@@ -98,7 +106,12 @@ NAV_STRUCTURE: dict[str, dict] = {
             {"key": "credit_card",    "label": "Credit Card",    "issuer_type": "credit_card",   "has_data": True},
             {"key": "consumer_loans", "label": "Consumer Loans", "issuer_type": "consumer_loan", "has_data": True},
             {"key": "student_loans",  "label": "Student Loans",  "issuer_type": "student_loan",  "has_data": True},
-            {"key": "esoteric",       "label": "Esoteric",       "issuer_type": "esoteric",      "has_data": False},
+            {"key": "small_business", "label": "Small Business Loans", "issuer_type": "small_business_loan", "has_data": False},
+            {"key": "aircraft",       "label": "Aircraft",             "issuer_type": "aircraft",            "has_data": False},
+            {"key": "datacenter",     "label": "Datacenter",           "issuer_type": "datacenter",          "has_data": False},
+            {"key": "fiber",          "label": "Fiber",                "issuer_type": "fiber",               "has_data": False},
+            {"key": "fleet_lease",    "label": "Fleet Lease",          "issuer_type": "fleet_lease",         "has_data": False},
+            {"key": "esoteric",       "label": "Esoteric",             "issuer_type": "esoteric",            "has_data": False},
         ],
     },
     "mbs": {
@@ -139,7 +152,8 @@ NAV_STRUCTURE: dict[str, dict] = {
 
 _SUBCAT_ICONS: dict[str, str] = {
     "auto": "🚗", "credit_card": "💳", "consumer_loans": "👤",
-    "student_loans": "🎓", "esoteric": "⚡",
+    "student_loans": "🎓", "small_business": "🏪", "aircraft": "✈️",
+    "datacenter": "🖥️", "fiber": "🌐", "fleet_lease": "🚛", "esoteric": "⚡",
     "nqm": "🏡", "second_lien": "🔗", "rpl": "🔄", "prime_jumbo": "🏠", "inv_property": "🏢", "npl": "📋", "sfr": "🏘️", "rtl": "🔨",
     "agency": "🏛️", "crt": "🛡️",
     "hei": "🏠", "cmbs": "🏢", "hy_bonds": "📈",
@@ -151,7 +165,12 @@ _SUBCAT_DESCS: dict[str, str] = {
     "credit_card": "Credit card receivables ABS",
     "consumer_loans": "Personal and installment loan ABS",
     "student_loans": "Student loan and refinancing ABS",
-    "esoteric": "Non-traditional collateral ABS",
+    "small_business": "Small business loan and SBA ABS",
+    "aircraft":       "Aircraft lease and loan receivables ABS",
+    "datacenter":     "Datacenter infrastructure receivables ABS",
+    "fiber":          "Fiber network receivables ABS",
+    "fleet_lease":    "Commercial fleet lease ABS",
+    "esoteric":       "Non-traditional collateral ABS",
     "agency": "FNMA, FHLMC, GNMA MBS pools",
     "crt": "GSE credit risk sharing transactions",
     "hei": "Home equity investment products",
