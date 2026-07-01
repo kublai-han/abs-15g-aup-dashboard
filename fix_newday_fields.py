@@ -49,16 +49,19 @@ for r in rows:
     exc = p.get("exception_count") or 0
     rate = p.get("exception_rate")
 
+    # Compute distinct field count (unique section names across findings)
+    distinct_fields = len({f.split(": ")[0] if ": " in f else f for f in findings})
+
     # Keep existing pool_size / sample_size — only update findings fields
     conn.execute(
-        "UPDATE procedures SET findings_json=?, exception_count=?, exception_rate=? WHERE id=?",
-        (json.dumps(findings) if findings else None, exc, rate, r["pid"]),
+        "UPDATE procedures SET findings_json=?, exception_count=?, exception_rate=?, fields_count=? WHERE id=?",
+        (json.dumps(findings) if findings else None, exc, rate, distinct_fields or None, r["pid"]),
     )
     conn.commit()
 
     pass_ct = sum(1 for f in findings if f.lower().endswith(": no exception"))
     exc_ct = len(findings) - pass_ct
-    print(f"fields={len(findings)} (pass={pass_ct} exc={exc_ct})  exc_count={exc}")
+    print(f"fields={len(findings)} distinct={distinct_fields} (pass={pass_ct} exc={exc_ct})  exc_count={exc}")
     ok += 1
 
 conn.execute("UPDATE filings SET raw_text = NULL")
