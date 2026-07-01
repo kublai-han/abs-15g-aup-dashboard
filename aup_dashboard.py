@@ -1305,49 +1305,103 @@ def _go(nav_key=None, sub_key=None):
         st.query_params.pop("sub", None)
     st.rerun()
 
-# Active column index (1-based) for CSS active-state injection
-_active_nav_idx = list(NAV_STRUCTURE.keys()).index(nav_main) + 1
+# ── Build HTML top-nav with CSS hover dropdowns ──
+def _nav_html(nav_main: str, nav_sub: str) -> str:
+    items = []
+    for nk, nsec in NAV_STRUCTURE.items():
+        is_active = nk == nav_main
+        active_cls = " bq-nav-active" if is_active else ""
+        subs = nsec.get("subs", [])
+        if subs:
+            dd_items = ""
+            for s in subs:
+                sub_active_cls = " bq-dd-active" if (is_active and s["key"] == nav_sub) else ""
+                disabled_style = "" if s.get("has_data") else "opacity:0.4;pointer-events:none;"
+                dd_items += (
+                    f'<a class="bq-dd-item{sub_active_cls}" '
+                    f'href="?nav={nk}&sub={s["key"]}" style="{disabled_style}">'
+                    f'{s["label"]}</a>'
+                )
+            items.append(
+                f'<div class="bq-nav-item{active_cls}">'
+                f'<a class="bq-nav-link" href="?nav={nk}">{nsec["label"]}</a>'
+                f'<div class="bq-dropdown">{dd_items}</div>'
+                f'</div>'
+            )
+        else:
+            items.append(
+                f'<div class="bq-nav-item{active_cls}">'
+                f'<a class="bq-nav-link" href="?nav={nk}">{nsec["label"]}</a>'
+                f'</div>'
+            )
+    return "".join(items)
 
-st.markdown(f"""<style>
-/* ── Top nav bar: style all buttons inside the sentinel row ── */
-[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) {{
-    background:#141428!important;
-    border-bottom:1px solid #2d2d5e!important;
-    gap:0!important;padding:0!important;align-items:stretch!important;
-}}
-[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) .stButton>button {{
-    background:none!important;border:none!important;border-radius:0!important;
-    border-bottom:2px solid transparent!important;color:#64748b!important;
-    padding:.9rem 1.6rem!important;font-size:.84rem!important;font-weight:500!important;
-    box-shadow:none!important;white-space:nowrap!important;width:100%!important;
-    transition:color .15s!important;
-}}
-[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) .stButton>button:hover {{
-    background:none!important;color:#e2e8f0!important;
-}}
-[data-testid="stHorizontalBlock"]:has(.tnav-sentinel) [data-testid="column"]:nth-child({_active_nav_idx}) .stButton>button {{
-    color:#a78bfa!important;border-bottom-color:#7b5ea7!important;font-weight:600!important;
-}}
-
-/* ── Sub nav bar ── */
-[data-testid="stHorizontalBlock"]:has(.snav-sentinel) {{
-    background:#0f0f24!important;
-    border-bottom:1px solid #1e1e3f!important;
-    gap:0!important;padding:0!important;align-items:stretch!important;
-}}
-[data-testid="stHorizontalBlock"]:has(.snav-sentinel) .stButton>button {{
-    background:none!important;border:none!important;border-radius:0!important;
-    border-bottom:2px solid transparent!important;color:#64748b!important;
-    padding:.55rem 1.2rem!important;font-size:.78rem!important;font-weight:500!important;
-    box-shadow:none!important;white-space:nowrap!important;width:100%!important;
-    transition:color .15s!important;
-}}
-[data-testid="stHorizontalBlock"]:has(.snav-sentinel) .stButton>button:hover {{
-    background:none!important;color:#94a3b8!important;
-}}
+st.markdown("""<style>
+/* ── HTML top-nav bar ── */
+.bq-topnav {
+    background: #141428;
+    border-bottom: 1px solid #2d2d5e;
+    display: flex;
+    align-items: stretch;
+    padding: 0;
+    margin: 0;
+    position: relative;
+    z-index: 1000;
+}
+.bq-nav-item {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+}
+.bq-nav-link {
+    display: flex;
+    align-items: center;
+    padding: .9rem 1.6rem;
+    font-size: .84rem;
+    font-weight: 500;
+    color: #64748b;
+    text-decoration: none !important;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color .15s;
+    cursor: pointer;
+}
+.bq-nav-item:hover > .bq-nav-link,
+.bq-nav-item.bq-nav-active > .bq-nav-link { color: #e2e8f0; }
+.bq-nav-item.bq-nav-active > .bq-nav-link {
+    color: #a78bfa;
+    border-bottom-color: #7b5ea7;
+    font-weight: 600;
+}
+/* ── Dropdown ── */
+.bq-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 200px;
+    background: #141428;
+    border: 1px solid #2d2d5e;
+    border-top: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    z-index: 2000;
+    padding: .25rem 0;
+}
+.bq-nav-item:hover .bq-dropdown { display: block; }
+.bq-dd-item {
+    display: block;
+    padding: .55rem 1.2rem;
+    font-size: .8rem;
+    color: #94a3b8;
+    text-decoration: none !important;
+    white-space: nowrap;
+    transition: background .1s, color .1s;
+}
+.bq-dd-item:hover { background: #1e1e3f; color: #e2e8f0; }
+.bq-dd-item.bq-dd-active { color: #a78bfa; font-weight: 600; }
 </style>""", unsafe_allow_html=True)
 
-# ── Header bar ──
+# ── Header bar + HTML top nav (single markdown block keeps them flush) ──
 st.markdown(f"""
 <div class="finsight-header">
   <div class="page-wrapper" style="display:flex;align-items:center;gap:1.25rem;width:100%;padding:0;">
@@ -1355,44 +1409,24 @@ st.markdown(f"""
     <div class="header-spacer"></div>
     <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
   </div>
-</div>""", unsafe_allow_html=True)
+</div>
+<nav class="bq-topnav">
+  <div class="page-wrapper" style="display:flex;align-items:stretch;padding:0;width:100%;">
+    {_nav_html(nav_main, nav_sub)}
+  </div>
+</nav>""", unsafe_allow_html=True)
 
-# ── Top nav buttons ──
-_nkeys = list(NAV_STRUCTURE.keys())
-_ncols = st.columns(len(_nkeys), gap="small")
-for _ni, _nk in enumerate(_nkeys):
-    with _ncols[_ni]:
-        if st.button(NAV_STRUCTURE[_nk]["label"], key=f"tnav_{_nk}", use_container_width=True):
-            _go(_nk)
-        if _ni == 0:
-            st.markdown('<span class="tnav-sentinel"></span><style>[data-testid~="stMarkdown"]:has(.tnav-sentinel){position:absolute!important;width:0!important;height:0!important;overflow:hidden!important;top:0!important;left:0!important;pointer-events:none!important;}</style>', unsafe_allow_html=True)
-
-# ── Sub-nav + breadcrumb (shown when inside a subcategory) ──
+# ── Breadcrumb (shown when inside a subcategory) ──
 if nav_sub and _sub_info:
     st.markdown(
         f'<div class="nav-breadcrumb page-wrapper">'
-        f'<span class="bc-current" style="color:#7b5ea7;cursor:pointer;" '
-        f'onclick="void(0)">{_section["label"]}</span>'
+        f'<a href="?nav={nav_main}" class="nav-breadcrumb" style="color:#7b5ea7;text-decoration:none;">'
+        f'{_section["label"]}</a>'
         f'<span class="sep"> › </span>'
         f'<span class="bc-current">{_sub_info["label"]}</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
-    _active_subs = [s for s in _section["subs"] if s.get("has_data")]
-    _skeys = [s["key"] for s in _active_subs]
-    _scols = st.columns(len(_skeys), gap="small")
-    _active_sub_idx = (_skeys.index(nav_sub) + 1) if nav_sub in _skeys else 0
-    st.markdown(f"""<style>
-[data-testid="stHorizontalBlock"]:has(.snav-sentinel) [data-testid="column"]:nth-child({_active_sub_idx}) .stButton>button {{
-    color:#a78bfa!important;border-bottom-color:#7b5ea7!important;font-weight:600!important;
-}}
-</style>""", unsafe_allow_html=True)
-    for _si, _s in enumerate(_active_subs):
-        with _scols[_si]:
-            if st.button(_s["label"], key=f"snav_{_s['key']}", use_container_width=True):
-                _go(nav_main, _s["key"])
-            if _si == 0:
-                st.markdown('<span class="snav-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Content routing
