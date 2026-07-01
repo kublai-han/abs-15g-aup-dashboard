@@ -421,6 +421,11 @@ def _sum_exception_counts_from_findings(findings: list[str]) -> int:
         if " " not in stripped and _RE_REFERENCE_CODE.match(stripped):
             continue
 
+        # "Field: no exception" / "No exceptions noted" → 0 exceptions
+        lower = stripped.lower()
+        if lower.endswith(": no exception") or lower == "no exceptions noted":
+            continue
+
         m = _RE_FINDING_COUNT.search(stripped)
         if m:
             token = m.group(1).lower()
@@ -476,13 +481,23 @@ def _dedup_findings(findings: list[str]) -> list[str]:
 
 
 # NewDay / UK-format section header: "2.6 Purchase Interest Rate (retail APR)"
+# \.? after the section number handles older formats where each number ends with a
+# period (e.g. "2.6.\n\nPurchase Interest Rate").
+# Character class includes Unicode left/right single quotes so that
+# "Primary Cardholder’s Name" is captured correctly.
+# Lookahead allows a sub-section number (2.\d) so parent sections like "2.2 Postcode"
+# are matched even when immediately followed by "2.2.1 For each loan...".
 _RE_NEWDAY_SECTION = re.compile(
-    r"(?:^|\n)\s*(2\.(?:\d+\.)*\d+)\s+"    # section number like "2.6" or "2.1.1"
-    r"([A-Z][A-Za-z0-9 /()%&'-]{3,70}?)"   # section title
-    r"\s*(?:\d+\s+)?(?=For|We\b|In\b|A\b)", # followed by page-# then prose
+    r"(?:^|\n)\s*(2\.(?:\d+\.)*\d+)\.?\s+"            # section number, optional trailing dot
+    r"([A-Z][A-Za-z0-9 /()%&’’’-]{3,70}?)"  # section title (allow Unicode quotes)
+    r"\s*(?:\d+\s+)?(?=For|We\b|In\b|A\b|2\.\d)",     # followed by prose OR sub-section
     re.MULTILINE,
 )
-_RE_NEWDAY_EXCEPT = re.compile(r"except\s+for\s+\d+\s+case", re.IGNORECASE)
+# Newer exhibits: "except for N case(s)"; 2021: "except for N errors"; 2020: "except for three cases"
+_RE_NEWDAY_EXCEPT = re.compile(
+    r"except\s+for\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:case|error)",
+    re.IGNORECASE,
+)
 # Each exception-table entry: reference on its own line + finding on next line.
 # Handles "DT095" (newer) and plain "95" or "1" (older) Deloitte references.
 _RE_NEWDAY_DT_ENTRY = re.compile(
@@ -530,18 +545,36 @@ def _parse_newday_labeled(html_content: str) -> list[str]:
         return []
 
     labeled: list[str] = []
-    for i, sec in enumerate(sections):
+    i = 0
+    while i < len(sections):
+        sec = sections[i]
+        sec_num = sec.group(1)   # e.g. "2.1" or "2.1.1"
         sec_name = sec.group(2).strip()
         # Strip parenthetical qualifiers: "Purchase Interest Rate (retail APR)" → "Purchase Interest Rate"
         sec_name = re.sub(r"\s*\([^)]*\)", "", sec_name).strip().rstrip(" ,;")
 
-        # Section body: from end of this header to start of next
+        # Skip sub-sections (2.N.M); they are consumed by their parent's body
+        parts = sec_num.split(".")
+        if len(parts) > 2:
+            i += 1
+            continue
+
+        # Find where this top-level section ends: advance j past all sub-sections
+        subsec_prefix = sec_num + "."   # "2.1."
+        j = i + 1
+        while j < len(sections) and sections[j].group(1).startswith(subsec_prefix):
+            j += 1
+
+        # Body covers header through all sub-sections, up to the next sibling section
         body_start = sec.end()
-        body_end = sections[i + 1].start() if i + 1 < len(sections) else len(text)
+        body_end = sections[j].start() if j < len(sections) else len(text)
         body = text[body_start:body_end]
 
+        i = j   # advance past all sub-sections we just consumed
+
         if not _RE_NEWDAY_EXCEPT.search(body):
-            continue  # no exception in this section
+            labeled.append(f"{sec_name}: no exception")
+            continue
 
         # Find all individual DT-reference exception entries in this section
         dt_entries = list(_RE_NEWDAY_DT_ENTRY.finditer(body))
@@ -900,20 +933,27 @@ def parse_aup_html(html_content: str) -> list[dict]:
         p = procedures[0]
 
         # ── NewDay / UK-format: section-aware finding labels ──────────────────
-        # Detect by presence of "Deloitte Reference" + "Sample Pool = N; System = N"
-        # pattern (unique to NewDay's Deloitte AUP letters).
+        # Detect by "paragraphs 2.N to 2.N" boilerplate (all NewDay exhibits) or
+        # the exception-case pattern (Deloitte Reference + Sample Pool value).
         _is_newday = bool(
-            re.search(r"Deloitte\s+Reference", html_content, re.IGNORECASE)
-            and re.search(r"Sample\s+Pool\s*[=:]", html_content, re.IGNORECASE)
+            re.search(r"paragraphs\s+2\.\d+\s+to\s+2\.\d+", html_content, re.IGNORECASE)
+            or (
+                re.search(r"Deloitte\s+Reference", html_content, re.IGNORECASE)
+                and re.search(r"Sample\s+Pool\s*[=:]", html_content, re.IGNORECASE)
+            )
         )
         if _is_newday:
             labeled = _parse_newday_labeled(html_content)
             if labeled:
                 p["findings"] = labeled
-                p["exception_count"] = len(labeled)
+                exc_count = sum(
+                    1 for f in labeled
+                    if not f.lower().endswith(": no exception")
+                )
+                p["exception_count"] = exc_count
                 if p.get("sample_size"):
                     try:
-                        p["exception_rate"] = len(labeled) / int(p["sample_size"])
+                        p["exception_rate"] = exc_count / int(p["sample_size"])
                     except (ValueError, ZeroDivisionError):
                         pass
                 return procedures  # skip generic table overlay for NewDay
