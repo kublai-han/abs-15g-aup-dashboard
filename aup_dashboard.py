@@ -1319,19 +1319,19 @@ def _nav_html(nav_main: str, nav_sub: str) -> str:
                 disabled_style = "" if s.get("has_data") else "opacity:0.4;pointer-events:none;"
                 dd_items += (
                     f'<a class="bq-dd-item{sub_active_cls}" '
-                    f'href="?nav={nk}&sub={s["key"]}" style="{disabled_style}">'
+                    f'href="?nav={nk}&sub={s["key"]}" target="_self" style="{disabled_style}">'
                     f'{s["label"]}</a>'
                 )
             items.append(
                 f'<div class="bq-nav-item{active_cls}">'
-                f'<a class="bq-nav-link" href="?nav={nk}">{nsec["label"]}</a>'
+                f'<a class="bq-nav-link" href="?nav={nk}" target="_self">{nsec["label"]}</a>'
                 f'<div class="bq-dropdown">{dd_items}</div>'
                 f'</div>'
             )
         else:
             items.append(
                 f'<div class="bq-nav-item{active_cls}">'
-                f'<a class="bq-nav-link" href="?nav={nk}">{nsec["label"]}</a>'
+                f'<a class="bq-nav-link" href="?nav={nk}" target="_self">{nsec["label"]}</a>'
                 f'</div>'
             )
     return "".join(items)
@@ -1420,7 +1420,7 @@ st.markdown(f"""
 if nav_sub and _sub_info:
     st.markdown(
         f'<div class="nav-breadcrumb page-wrapper">'
-        f'<a href="?nav={nav_main}" class="nav-breadcrumb" style="color:#7b5ea7;text-decoration:none;">'
+        f'<a href="?nav={nav_main}" target="_self" class="nav-breadcrumb" style="color:#7b5ea7;text-decoration:none;">'
         f'{_section["label"]}</a>'
         f'<span class="sep"> › </span>'
         f'<span class="bc-current">{_sub_info["label"]}</span>'
