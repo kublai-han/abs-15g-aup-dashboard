@@ -305,6 +305,70 @@ STUDENT_LOAN_ISSUERS = {
 ISSUERS.update(STUDENT_LOAN_ISSUERS)
 
 # ---------------------------------------------------------------------------
+# Small Business Loan ABS issuers — verified ABS-15G filers
+#
+# NOTE: SBA program deals (SBA 504/CDC "SBAP", SBIC debentures) are issued by
+# the Small Business Administration, a government agency exempt from Reg AB II
+# — no ABS-15G filings exist for those on EDGAR.
+# ---------------------------------------------------------------------------
+SBL_ISSUERS = {
+    "first_citizens": {
+        "name": "First Citizens BancShares",
+        "cik": "0002128731",   # First Citizens Securitization Depositor LLC — FCLT 2026-SBA1
+        "type": "small_business_loan",
+        "active": True,
+    },
+    "readycap": {
+        "name": "ReadyCap Lending (Waterfall)",
+        "cik": "0001795936",   # ReadyCap Lending SBL Depositor, LLC — RCLT trusts, 9 filings
+        "ciks": ["0001795936", "0002137901"],  # also ReadyCap Lending, LLC (2026-4, newer filer)
+        "type": "small_business_loan",
+        "active": True,
+    },
+    "fora_financial": {
+        "name": "Fora Financial",
+        # Three sibling co-originators (West 0001786188, Business Loans 0001786189,
+        # Advance 0001786192) each file duplicate 15Gs for the same deal on the
+        # same dates — register only Advance (longest history) to avoid dup rows.
+        "cik": "0001786192",   # Fora Financial Advance LLC — 11 filings
+        "type": "small_business_loan",
+        "active": True,
+    },
+    "byzfunder": {
+        "name": "ByzFunder",
+        "cik": "0002132051",   # ByzFunder NY LLC — BYZF 2026-1
+        "type": "small_business_loan",
+        "active": True,
+    },
+    "mulligan": {
+        "name": "Mulligan Funding",
+        "cik": "0001482399",   # Mulligan Funding, LLC — MLLGN trusts, 7 filings
+        "type": "small_business_loan",
+        "active": True,
+    },
+    "kapitus": {
+        "name": "Kapitus (Strategic Funding Source)",
+        "cik": "0001544352",   # Strategic Funding Source, Inc. dba Kapitus — 19 filings
+        "type": "small_business_loan",
+        "active": True,
+    },
+    "velocity_sba": {
+        "name": "VelocitySBA (Cranemere)",
+        "cik": "0002094123",   # VelocitySBA Funding, LLC — VLSBA 2026-1
+        "type": "small_business_loan",
+        "active": True,
+    },
+    "kalamata": {
+        "name": "Kalamata Capital Group",
+        "cik": "0002009263",   # Kalamata.com, LLC — KCG Securitization trusts, 6 filings
+        "type": "small_business_loan",
+        "active": True,
+    },
+}
+
+ISSUERS.update(SBL_ISSUERS)
+
+# ---------------------------------------------------------------------------
 # Mortgage Backed Securities — Non-Qualified Mortgage (NQM)
 # ---------------------------------------------------------------------------
 NQM_ISSUERS = {

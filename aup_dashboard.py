@@ -106,7 +106,7 @@ NAV_STRUCTURE: dict[str, dict] = {
             {"key": "credit_card",    "label": "Credit Card",    "issuer_type": "credit_card",   "has_data": True},
             {"key": "consumer_loans", "label": "Consumer Loans", "issuer_type": "consumer_loan", "has_data": True},
             {"key": "student_loans",  "label": "Student Loans",  "issuer_type": "student_loan",  "has_data": True},
-            {"key": "small_business", "label": "Small Business Loans", "issuer_type": "small_business_loan", "has_data": False},
+            {"key": "small_business", "label": "Small Business Loans", "issuer_type": "small_business_loan", "has_data": True},
             {"key": "aircraft",       "label": "Aircraft",             "issuer_type": "aircraft",            "has_data": False},
             {"key": "datacenter",     "label": "Datacenter",           "issuer_type": "datacenter",          "has_data": False},
             {"key": "fiber",          "label": "Fiber",                "issuer_type": "fiber",               "has_data": False},
