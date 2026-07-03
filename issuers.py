@@ -70,7 +70,7 @@ ISSUERS = {
         "active": True,
     },
     "funding_circle": {
-        "name": "Funding Circle / Lendio",
+        "name": "Funding Circle",
         "cik": "0001783754",  # FC Marketplace, LLC (was 0001780530 = Bridgeway Wellness Group LLC)
         "type": "small_business_loan",
         "active": True,

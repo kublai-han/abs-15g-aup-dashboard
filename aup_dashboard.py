@@ -1920,7 +1920,7 @@ with tab3:
                 "onemain": "OneMain Financial",
                 "achieve": "Achieve (Freedom Financial Networks)",
                 "lendingclub": "LendingClub Corporation",
-                "funding_circle": "Funding Circle / Lendio",
+                "funding_circle": "Funding Circle",
                 "marlette": "Marlette Funding (Best Egg)",
                 "regional_management": "Regional Management",
                 # Credit card discrete-deal issuers
