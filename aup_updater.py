@@ -393,6 +393,29 @@ _KNOWN_AUDIT_FIRMS = (
     "baker tilly",
     # Protiviti ? consulting firm (not licensed CPA firm) used for credit card AUP engagements
     "protiviti",
+    # CBIZ MHM ? consulting firm used for small business loan AUP engagements
+    "cbiz",
+    # Third-party review (TPR) firms used for MBS due-diligence reports
+    "amc diligence",
+    "dynamc",
+    "clayton",
+    "digital risk",
+    "consolidated analytics",
+    "clarifii",
+    "visionet",
+    "covius",
+    "recovco",
+    "opus capital markets",
+    "evolve mortgage",
+    "selene diligence",
+    "situs",
+    "edgemac",
+    "canopy financial",
+    "infinity ipx",
+    "adfitech",
+    "wipro",
+    "situsamc",
+    "mission global",
 )
 
 
@@ -416,6 +439,10 @@ def _is_bad_parse(
     p = (aup_provider or "").lower()
     if not p:
         return False  # None/empty = no firm detected (OK for non-AUP filings)
+    # "Unknown" = parser could not identify the firm; retrying daily never
+    # improves this, so don't flag it for re-parse
+    if p == "unknown":
+        return False
     # Original cover-form boilerplate artifacts
     if any(m in p for m in _BAD_PROVIDER_MARKERS):
         return True
@@ -423,10 +450,14 @@ def _is_bad_parse(
     if not any(firm in p for firm in _KNOWN_AUDIT_FIRMS):
         return True
     # Known firm but exhibit_url is the ABS-15G cover form ? the auditor name is
-    # only referenced in passing on the cover; the real AUP is in Exhibit 99.1
+    # only referenced in passing on the cover; the real AUP is in Exhibit 99.1.
+    # Filenames like "cps_abs15g-ex9901.htm" contain "abs15g" but ARE exhibits,
+    # so only flag when the filename has no exhibit marker.
     if exhibit_url:
         filename = exhibit_url.rsplit("/", 1)[-1].lower()
-        if "abs15g" in filename or "abs-15g" in filename:
+        if ("abs15g" in filename or "abs-15g" in filename) and not re.search(
+            r"ex[-_]?\d|ex(?:h|hibit)?[-_]?9", filename
+        ):
             return True
     return False
 
