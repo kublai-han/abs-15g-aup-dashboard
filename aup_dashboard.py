@@ -872,19 +872,25 @@ st.markdown(
         .subcat-card-live { display: inline-block; font-size: 0.64rem; font-weight: 700; color: #00c896; background: #00c89614; border: 1px solid #00c89638; border-radius: 3px; padding: 2px 7px; }
         .subcat-card-soon { display: inline-block; font-size: 0.64rem; font-weight: 700; color: #64748b; background: #64748b14; border: 1px solid #64748b38; border-radius: 3px; padding: 2px 7px; }
 
-        /* ── Breadcrumb ── */
+        /* ── Breadcrumb band (CreditFlow style) ── */
+        .bq-breadcrumb-band {
+            background: #1a1a38;
+            border-bottom: 1px solid #2d2d5e;
+            width: 100%;
+        }
         .nav-breadcrumb {
-            font-size: 0.78rem;
-            color: #64748b;
-            padding: 0.6rem 0 0.15rem;
+            font-size: 0.8rem;
+            color: #e2e8f0;
+            padding: 0.55rem 0;
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.6rem;
+            font-weight: 500;
         }
-        .nav-breadcrumb a { color: #7b5ea7; text-decoration: none; }
-        .nav-breadcrumb a:hover { text-decoration: underline; }
-        .nav-breadcrumb .sep { color: #2d2d5e; font-size: 0.7rem; }
-        .nav-breadcrumb .bc-current { color: #94a3b8; }
+        .nav-breadcrumb a { color: #e2e8f0; text-decoration: none !important; }
+        .nav-breadcrumb a:hover { color: #a78bfa; }
+        .nav-breadcrumb .sep { color: #64748b; font-size: 0.75rem; }
+        .nav-breadcrumb .bc-current { color: #e2e8f0; }
         /* ── Rating badges (used in Summary Stats & Methodology) ── */
         .rating-badge { display:inline-block; padding:2px 10px; border-radius:4px;
                         font-weight:700; font-size:0.82rem; min-width:42px; text-align:center; }
@@ -1418,12 +1424,12 @@ st.markdown(f"""
 # ── Breadcrumb (shown when inside a subcategory) ──
 if nav_sub and _sub_info:
     st.markdown(
+        f'<div class="bq-breadcrumb-band">'
         f'<div class="nav-breadcrumb page-wrapper">'
-        f'<a href="?nav={nav_main}" target="_self" class="nav-breadcrumb" style="color:#7b5ea7;text-decoration:none;">'
-        f'{_section["label"]}</a>'
-        f'<span class="sep"> › </span>'
+        f'<a href="?nav={nav_main}" target="_self">{_section["label"]}</a>'
+        f'<span class="sep">&gt;</span>'
         f'<span class="bc-current">{_sub_info["label"]}</span>'
-        f'</div>',
+        f'</div></div>',
         unsafe_allow_html=True,
     )
 
