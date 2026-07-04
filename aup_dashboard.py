@@ -2116,7 +2116,7 @@ with tab3:
                     return f'<span class="rating-badge {cls}">{rating}</span>'
                 df_summary["AUP Rating"] = df_summary.apply(_aup_score, axis=1)
                 for col in ["Avg Exception Rate (%)", "Min (%)", "Max (%)"]:
-                    df_summary[col] = df_summary[col].map(lambda x: f"{x:.4f}")
+                    df_summary[col] = df_summary[col].map(lambda x: f"{x:.2f}")
                 df_summary = df_summary[["Issuer", "AUP Rating", "# of Deals", "Avg Exception Rate (%)", "Min (%)", "Max (%)"]]
 
             st.html(_table_html(df_summary))
@@ -2207,7 +2207,7 @@ with tab3:
                         y="exception_rate_pct",
                         color="Issuer",
                         markers=True,
-                        hover_data={"filed_date": False, "Issuer": False, "exception_rate_pct": ":.4f"},
+                        hover_data={"filed_date": False, "Issuer": False, "exception_rate_pct": ":.2f"},
                         labels={
                             "filed_date": "Filing Date",
                             "exception_rate_pct": "Avg Exception Rate (%)",
