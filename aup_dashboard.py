@@ -1943,7 +1943,13 @@ with tab3:
             df["Issuer"] = df["issuer_key"].map(name_map).fillna(df["issuer_key"])
 
             # Normalize asset_type label
-            _ASSET_LABELS = {"consumer_loan": "Consumer Loan", "auto": "Auto", "credit_card": "Credit Card"}
+            _ASSET_LABELS = {
+                "consumer_loan": "Consumer Loan",
+                "auto": "Auto",
+                "credit_card": "Credit Card",
+                "student_loan": "Student Loan",
+                "small_business_loan": "Small Business Loan",
+            }
             df["asset_type"] = df["asset_type"].fillna("consumer_loan")
             df["Asset Type"] = df["asset_type"].map(_ASSET_LABELS).fillna(df["asset_type"])
 
