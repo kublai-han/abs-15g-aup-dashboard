@@ -6,11 +6,10 @@ Finsight-inspired dark theme layout.
 
 Tabs
 ----
-1. Market Overview     -- summary cards, issuer profile grid, run-updater button
-2. Issuer Profiles     -- filing history + AUP results for a selected issuer
-3. AUP Results         -- cross-issuer exception rate comparisons & trend charts
-4. DQA Report          -- data quality check history and dqa_report.md viewer
-5. Update Log          -- last-run timestamp, new filings, errors
+1. AUP Results         -- cross-issuer exception rate comparisons & trend charts
+2. ABS-15G Filings     -- filing history + AUP results for a selected issuer
+3. Edgar Filings       -- summary cards, issuer profile grid
+4. Rating Methodology  -- scoring approach documentation
 """
 
 from __future__ import annotations
@@ -1587,19 +1586,18 @@ else:
     # ---------------------------------------------------------------------------
     # Main tab layout — AUP Results is first (default selected tab)
     # Tab variables reassigned so no content blocks need changing:
-    #   tab3 → "AUP Results" | tab2 → "Issuer Profiles" | tab1 → "Market Overview"
+    #   tab3 → "AUP Results" | tab2 → "ABS-15G Filings" | tab1 → "Edgar Filings"
     # ---------------------------------------------------------------------------
-    tab3, tab2, tab1, tab5, tab6 = st.tabs([
+    tab3, tab2, tab1, tab6 = st.tabs([
         "AUP Results",
-        "Issuer Profiles",
-        "Market Overview",
-        "Update Log",
+        "ABS-15G Filings",
+        "Edgar Filings",
         "Rating Methodology",
     ])
 
 
 # ===========================================================================
-# TAB 1 — MARKET OVERVIEW
+# TAB 1 — EDGAR FILINGS
 # ===========================================================================
 
 with tab1:
@@ -1750,12 +1748,12 @@ with tab1:
 
 
 # ===========================================================================
-# TAB 2 — ISSUER PROFILES
+# TAB 2 — ABS-15G FILINGS
 # ===========================================================================
 
 with tab2:
     st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
-    st.markdown('<div class="finsight-section-title">Issuer Profiles</div>', unsafe_allow_html=True)
+    st.markdown('<div class="finsight-section-title">ABS-15G Filings</div>', unsafe_allow_html=True)
 
     issuer_options = {v["name"]: k for k, v in _page_issuers.items()}
 
@@ -2300,174 +2298,6 @@ with tab3:
 
     st.markdown("</div></div>", unsafe_allow_html=True)
 
-
-# ===========================================================================
-# TAB 5 — UPDATE LOG
-# ===========================================================================
-
-with tab5:
-    st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
-    st.markdown('<div class="finsight-section-title">Update Log</div>', unsafe_allow_html=True)
-
-    if not DB_PATH.exists():
-        _no_data_banner()
-    else:
-        all_filings_log = db.get_filings(limit=10_000, db_path=DB_PATH)
-
-        if not all_filings_log:
-            _no_data_banner()
-        else:
-            # Last run approximated by newest created_at
-            created_ats = [f.get("created_at") for f in all_filings_log if f.get("created_at")]
-            last_run_ts = max(created_ats) if created_ats else None
-
-            def _is_recent(ts_str: str) -> bool:
-                try:
-                    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-                    return (now_utc - ts).total_seconds() < 86_400
-                except Exception:
-                    return False
-
-            recent_filings = [
-                f for f in all_filings_log if _is_recent(f.get("created_at", ""))
-            ]
-            all_dqa_log = db.get_dqa_log(limit=500, db_path=DB_PATH)
-            recent_errors = [
-                r for r in all_dqa_log
-                if r.get("status") in ("fail", "warn") and _is_recent(r.get("created_at", ""))
-            ]
-
-            st.markdown(
-                f"""
-                <div class="metric-grid">
-                    <div class="metric-card">
-                        <div class="metric-label">Last Run</div>
-                        <div class="metric-value" style="font-size:1.1rem;">
-                            {_fmt_date(last_run_ts[:10]) if last_run_ts else "Unknown"}
-                        </div>
-                        <div class="metric-sub">{last_run_ts or "No timestamp"}</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">New Filings (24h)</div>
-                        <div class="metric-value" style="color:#00c896;">{len(recent_filings)}</div>
-                        <div class="metric-sub">Ingested in last 24 hours</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">Errors / Warnings (24h)</div>
-                        <div class="metric-value" style="color:{'#ff4757' if recent_errors else '#00c896'};">
-                            {len(recent_errors)}
-                        </div>
-                        <div class="metric-sub">DQA checks flagged</div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            # --- New filings feed ---
-            st.markdown(
-                '<div class="finsight-section-title">New Filings — Last 24 Hours</div>',
-                unsafe_allow_html=True,
-            )
-
-            if not recent_filings:
-                st.markdown(
-                    '<div class="info-box">No new filings ingested in the last 24 hours.</div>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                feed_html = ""
-                for f in recent_filings:
-                    iname = ISSUERS.get(f["issuer_key"], {}).get("name", f["issuer_key"])
-                    acc = f.get("accession_number", "")
-                    cik = f.get("cik", "")
-                    url = _accession_url(cik, acc) if acc and cik else ""
-                    link = f' — <a href="{url}" target="_blank" style="color:#a78bfa;">View &#8599;</a>' if url else ""
-                    feed_html += f"""
-                    <div class="activity-item">
-                        <div class="activity-dot"></div>
-                        <div>
-                            <div class="activity-text">
-                                <b style="color:#f1f5f9;">{iname}</b> filed
-                                <span style="color:#a78bfa;">{f.get("form_type","ABS-15G")}</span>
-                                for period {_fmt_date(f.get("period_of_report"))}{link}
-                            </div>
-                            <div class="activity-time">Ingested: {f.get("created_at","—")} &bull; Filing date: {_fmt_date(f.get("filed_date"))}</div>
-                        </div>
-                    </div>
-                    """
-                st.markdown(
-                    f'<div style="background:#1e1e3f;border:1px solid #2d2d5e;border-radius:8px;padding:0.5rem 1rem;">'
-                    f"{feed_html}</div>",
-                    unsafe_allow_html=True,
-                )
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # --- Errors / warnings ---
-            st.markdown(
-                '<div class="finsight-section-title">Recent Errors and Warnings</div>',
-                unsafe_allow_html=True,
-            )
-
-            if not recent_errors:
-                st.markdown(
-                    '<div class="info-box" style="border-left-color:#00c896;">'
-                    "No errors or warnings recorded in the last 24 hours.</div>",
-                    unsafe_allow_html=True,
-                )
-            else:
-                err_rows = []
-                for r in recent_errors:
-                    iname = ISSUERS.get(r["issuer_key"], {}).get("name", r["issuer_key"])
-                    err_rows.append({
-                        "Issuer": iname,
-                        "Check Type": r.get("check_type", "—"),
-                        "Status": _badge_html(r.get("status", "warn")),
-                        "Notes": r.get("notes", "—"),
-                        "Logged At": r.get("created_at", "—"),
-                    })
-                st.html(_table_html(pd.DataFrame(err_rows)))
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # --- Coverage bar chart ---
-            st.markdown(
-                '<div class="finsight-section-title">All-Time Filing Coverage by Issuer</div>',
-                unsafe_allow_html=True,
-            )
-
-            filing_counts_log = _filing_count_per_issuer()
-            if filing_counts_log:
-                cov_rows = [
-                    {"Issuer": ISSUERS.get(k, {}).get("name", k), "Filings": v}
-                    for k, v in sorted(filing_counts_log.items(), key=lambda x: -x[1])
-                ]
-                df_cov = pd.DataFrame(cov_rows)
-                fig_cov = px.bar(
-                    df_cov,
-                    x="Issuer",
-                    y="Filings",
-                    color="Filings",
-                    color_continuous_scale=[[0, "#2d2d5e"], [0.5, "#7b5ea7"], [1, "#a78bfa"]],
-                    labels={"Filings": "Total Filings"},
-                )
-                fig_cov.update_layout(**_dark_plotly_layout())
-                fig_cov.update_layout(
-                    coloraxis_showscale=False,
-                    xaxis_tickangle=-30,
-                    height=360,
-                    xaxis_title="",
-                    yaxis_title="Total Filings",
-                )
-                st.plotly_chart(fig_cov, use_container_width=True)
-            else:
-                st.markdown(
-                    '<div class="info-box">No filing data available for coverage chart.</div>',
-                    unsafe_allow_html=True,
-                )
-
-    st.markdown("</div></div>", unsafe_allow_html=True)
 
 # ===========================================================================
 # TAB 6 — RATING METHODOLOGY
