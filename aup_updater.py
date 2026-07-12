@@ -198,6 +198,17 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_filings_issuer  ON filings(issuer_key);
         CREATE INDEX IF NOT EXISTS idx_filings_accno   ON filings(accession_no);
         CREATE INDEX IF NOT EXISTS idx_procedures_fid  ON procedures(filing_id);
+
+        -- Filings examined and skipped (e.g. 15Ga-1 annual certifications with
+        -- no AUP exhibit). Recording them prevents re-downloading and
+        -- re-parsing the same filings on every run.
+        CREATE TABLE IF NOT EXISTS skipped_filings (
+            accession_no    TEXT PRIMARY KEY,
+            issuer_key      TEXT,
+            filed_date      TEXT,
+            reason          TEXT,
+            created_at      TEXT
+        );
         """
     )
     conn.commit()
@@ -208,6 +219,30 @@ def _filing_exists(conn: sqlite3.Connection, accession_no: str) -> bool:
         "SELECT 1 FROM filings WHERE accession_no = ?", (accession_no,)
     ).fetchone()
     return row is not None
+
+
+def _filing_skipped(conn: sqlite3.Connection, accession_no: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM skipped_filings WHERE accession_no = ?", (accession_no,)
+    ).fetchone()
+    return row is not None
+
+
+def _mark_skipped(
+    conn: sqlite3.Connection,
+    accession_no: str,
+    issuer_key: str,
+    filed_date: str,
+    reason: str,
+) -> None:
+    conn.execute(
+        "INSERT OR IGNORE INTO skipped_filings"
+        " (accession_no, issuer_key, filed_date, reason, created_at)"
+        " VALUES (?,?,?,?,?)",
+        (accession_no, issuer_key, filed_date, reason,
+         datetime.now(timezone.utc).isoformat()),
+    )
+    conn.commit()
 
 
 def _insert_filing(
@@ -799,6 +834,11 @@ def check_for_new_filings() -> dict:
                 if not accession_no:
                     continue
 
+                # Previously examined and skipped (e.g. 15Ga-1 certification)
+                # ? don't re-download / re-parse it on every run.
+                if _filing_skipped(conn, accession_no):
+                    continue
+
                 if _filing_exists(conn, accession_no):
                     # Re-try if: (a) stored with no exhibit_url, or (b) bad parse from cover form
                     row = conn.execute(
@@ -930,6 +970,10 @@ def check_for_new_filings() -> dict:
                     logger.info(
                         "Skipping %s %s - 15Ga-1 annual certification (no exhibit, no AUP data)",
                         issuer_key, accession_no,
+                    )
+                    _mark_skipped(
+                        conn, accession_no, issuer_key, filing["filed_date"],
+                        "15Ga-1 annual certification (no exhibit, no AUP data)",
                     )
                     continue
 
