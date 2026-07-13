@@ -1440,7 +1440,11 @@ st.markdown("""<style>
 </style>""", unsafe_allow_html=True)
 
 # ── Account state + alert options ──
+# Reload like issuers: Streamlit Cloud caches imported modules across git
+# pushes, so a stale user_accounts (missing newer functions) raises
+# AttributeError until reloaded.
 import user_accounts as _ua
+importlib.reload(_ua)
 
 _user_email = st.session_state.get("user_email")
 _acct_profile = _ua.get_user(_user_email) if _user_email else None
