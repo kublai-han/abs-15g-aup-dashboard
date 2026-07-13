@@ -73,6 +73,10 @@ SECTOR_BADGES: dict[str, tuple[str, str]] = {
     "datacenter":          ("DC",   "#6366f1"),
     "fiber":               ("FBR",  "#16a34a"),
     "fleet_lease":         ("FLT",  "#ea580c"),
+    "conduit":             ("CNDT", "#d97706"),
+    "cre_clo":             ("CRE",  "#b45309"),
+    "large_loan":          ("SASB", "#f59e0b"),
+    "cmbs_other":          ("CMBS", "#92400e"),
 }
 
 ASSET_TYPE_LABELS: dict[str, str] = {
@@ -94,6 +98,10 @@ ASSET_TYPE_LABELS: dict[str, str] = {
     "datacenter":          "Datacenter",
     "fiber":               "Fiber",
     "fleet_lease":         "Fleet Lease",
+    "conduit":             "Conduit CMBS",
+    "cre_clo":             "CRE-CLO",
+    "large_loan":          "Large-Loan CMBS",
+    "cmbs_other":          "Other CMBS",
 }
 
 # Top-level navigation tree — has_data controls landing card interactivity
@@ -127,7 +135,15 @@ NAV_STRUCTURE: dict[str, dict] = {
             {"key": "agency",        "label": "Agency MBS",                   "issuer_type": "agency",        "has_data": False},
             {"key": "crt",           "label": "Credit Risk Transfer",         "issuer_type": "crt",           "has_data": False},
             {"key": "hei",           "label": "Home Equity Investments",      "issuer_type": "hei",           "has_data": False},
-            {"key": "cmbs",          "label": "Commercial MBS",               "issuer_type": "cmbs",          "has_data": False},
+        ],
+    },
+    "cmbs": {
+        "label": "Commercial MBS", "short": "CMBS", "color": "#d97706",
+        "subs": [
+            {"key": "conduit",    "label": "Conduit",    "issuer_type": "conduit",    "has_data": True},
+            {"key": "cre_clo",    "label": "CRE-CLO",    "issuer_type": "cre_clo",    "has_data": True},
+            {"key": "large_loan", "label": "Large-Loan", "issuer_type": "large_loan", "has_data": False},
+            {"key": "cmbs_other", "label": "Other",      "issuer_type": "cmbs_other", "has_data": False},
         ],
     },
     "hyc": {
@@ -155,7 +171,9 @@ _SUBCAT_ICONS: dict[str, str] = {
     "datacenter": "🖥️", "fiber": "🌐", "fleet_lease": "🚛", "esoteric": "⚡",
     "nqm": "🏡", "second_lien": "🔗", "rpl": "🔄", "prime_jumbo": "🏠", "inv_property": "🏢", "npl": "📋", "sfr": "🏘️", "rtl": "🔨",
     "agency": "🏛️", "crt": "🛡️",
-    "hei": "🏠", "cmbs": "🏢", "hy_bonds": "📈",
+    "hei": "🏠",
+    "conduit": "🏢", "cre_clo": "🏗️", "large_loan": "🏨", "cmbs_other": "🌆",
+    "hy_bonds": "📈",
     "lev_loans": "💰", "clo": "🔗", "bdc": "💼", "ig_bonds": "🏅",
     "ig_loans": "🤝", "covered": "🔒",
 }
@@ -181,7 +199,10 @@ _SUBCAT_DESCS: dict[str, str] = {
     "npl": "Non-performing mortgage loan pools",
     "sfr": "Single family rental securitizations",
     "rtl": "Fix-and-flip and bridge loan securitizations",
-    "cmbs": "Commercial real estate backed",
+    "conduit":    "Multi-borrower conduit CMBS",
+    "cre_clo":    "Commercial real estate CLOs",
+    "large_loan": "Single-asset single-borrower and large-loan CMBS",
+    "cmbs_other": "Other commercial mortgage securitizations",
     "hy_bonds": "Below investment-grade corporate bonds",
     "lev_loans": "Syndicated leveraged loans",
     "clo": "Collateralized loan obligations",
@@ -1420,6 +1441,76 @@ st.markdown(f"""
     {_nav_html(nav_main, nav_sub)}
   </div>
 </nav>""", unsafe_allow_html=True)
+
+# ── Account / daily-alert signup (top right) ──
+import user_accounts as _ua
+
+# label -> issuer_type for every sub-category that has data
+_ALERT_OPTIONS: dict[str, str] = {}
+for _sec_a in NAV_STRUCTURE.values():
+    for _s_a in _sec_a["subs"]:
+        if _s_a.get("has_data"):
+            _ALERT_OPTIONS[f"{_sec_a['short']} — {_s_a['label']}"] = _s_a["issuer_type"]
+_TYPE_TO_LABEL = {v: k for k, v in _ALERT_OPTIONS.items()}
+
+st.markdown("""<style>
+/* Compact top-right account popover row */
+[data-testid="stHorizontalBlock"]:has(.acct-sentinel) { margin: -0.4rem 0 -0.6rem; }
+[data-testid="stHorizontalBlock"]:has(.acct-sentinel) [data-testid="stPopover"] button {
+    background: #1e1e3f !important; border: 1px solid #2d2d5e !important;
+    color: #a78bfa !important; font-size: .78rem !important;
+    padding: .25rem .8rem !important; border-radius: 6px !important;
+}
+</style>""", unsafe_allow_html=True)
+
+_acct_sp, _acct_col = st.columns([8.5, 1.5])
+with _acct_sp:
+    st.markdown('<span class="acct-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
+with _acct_col:
+    _user_email = st.session_state.get("user_email")
+    with st.popover(f"👤 {_user_email}" if _user_email else "👤 Log In / Sign Up",
+                    use_container_width=True):
+        if not _user_email:
+            _tab_li, _tab_su = st.tabs(["Log In", "Create Account"])
+            with _tab_li:
+                _li_email = st.text_input("Email", key="li_email")
+                _li_pw = st.text_input("Password", type="password", key="li_pw")
+                if st.button("Log In", key="li_btn", use_container_width=True):
+                    if _ua.authenticate(_li_email, _li_pw):
+                        st.session_state["user_email"] = _li_email.strip().lower()
+                        st.rerun()
+                    else:
+                        st.error("Invalid email or password.")
+            with _tab_su:
+                _su_email = st.text_input("Email", key="su_email")
+                _su_pw = st.text_input("Password (8+ characters)", type="password", key="su_pw")
+                _su_subs = st.multiselect(
+                    "Send me daily updates on new AUP results for:",
+                    list(_ALERT_OPTIONS.keys()), key="su_subs",
+                )
+                if st.button("Create Account", key="su_btn", use_container_width=True):
+                    _ok, _msg = _ua.create_account(
+                        _su_email, _su_pw, [_ALERT_OPTIONS[l] for l in _su_subs]
+                    )
+                    if _ok:
+                        st.session_state["user_email"] = _su_email.strip().lower()
+                        st.rerun()
+                    else:
+                        st.error(_msg)
+        else:
+            st.markdown(f"Signed in as **{_user_email}**")
+            _cur_subs = _ua.get_subscriptions(_user_email)
+            _cur_labels = [_TYPE_TO_LABEL[t] for t in _cur_subs if t in _TYPE_TO_LABEL]
+            _mg_subs = st.multiselect(
+                "Daily updates on new AUP results for:",
+                list(_ALERT_OPTIONS.keys()), default=_cur_labels, key="mg_subs",
+            )
+            if st.button("Save Preferences", key="mg_save", use_container_width=True):
+                _ua.update_subscriptions(_user_email, [_ALERT_OPTIONS[l] for l in _mg_subs])
+                st.success("Preferences saved.")
+            if st.button("Log Out", key="mg_logout", use_container_width=True):
+                del st.session_state["user_email"]
+                st.rerun()
 
 # ── Breadcrumb (shown when inside a subcategory) ──
 if nav_sub and _sub_info:

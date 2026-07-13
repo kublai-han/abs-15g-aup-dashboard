@@ -402,6 +402,14 @@ def _find_exhibit_url(cik: str, accession_no: str) -> Optional[str]:
     return None
 
 
+# Issuer types excluded from the automatic daily update. The residential MBS
+# section is under manual configuration — do not auto-ingest new filings for
+# these issuers until the exclusion is lifted.
+AUTO_UPDATE_EXCLUDED_TYPES = {
+    "nqm", "second_lien", "npl", "rpl", "prime_jumbo",
+    "inv_property", "sfr", "rtl", "mortgage",
+}
+
 # Markers that indicate a filing was parsed from the SEC cover form, not the AUP letter
 _BAD_PROVIDER_MARKERS = ("number of securitizer", "number of depositor", "number of")
 
@@ -811,6 +819,12 @@ def check_for_new_filings() -> dict:
 
     try:
         for issuer_key, issuer_info in ISSUERS.items():
+            if issuer_info.get("type") in AUTO_UPDATE_EXCLUDED_TYPES:
+                logger.info(
+                    "Skipping issuer %s (type=%s excluded from auto-update)",
+                    issuer_key, issuer_info.get("type"),
+                )
+                continue
             cik_list: list[str] = [
                 str(c).strip() for c in issuer_info.get("ciks", [issuer_info.get("cik", "")])
                 if str(c).strip()

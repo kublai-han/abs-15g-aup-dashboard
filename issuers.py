@@ -511,6 +511,109 @@ RTL_ISSUERS = {
 ISSUERS.update(RTL_ISSUERS)
 
 
+# ---------------------------------------------------------------------------
+# Commercial MBS — Conduit (multi-borrower) depositors
+# NOTE: SASB / large-loan deals often file under these same bank depositors;
+# per-filing asset_type can be reclassified later if needed.
+# ---------------------------------------------------------------------------
+CMBS_CONDUIT_ISSUERS = {
+    "wells_fargo_cmbs": {
+        "name": "Wells Fargo (WFCM)",
+        "cik": "0000850779",   # Wells Fargo Commercial Mortgage Securities Inc — 189+ filings
+        "type": "conduit",
+        "active": True,
+    },
+    "citigroup_cmbs": {
+        "name": "Citigroup (CGCMT)",
+        "cik": "0001258361",   # Citigroup Commercial Mortgage Securities Inc — 188 filings
+        "type": "conduit",
+        "active": True,
+    },
+    "bmo_cmbs": {
+        "name": "BMO Capital Markets",
+        "cik": "0001861132",   # BMO Commercial Mortgage Securities LLC — 39 filings
+        "type": "conduit",
+        "active": True,
+    },
+    "jpmorgan_cmbs": {
+        "name": "J.P. Morgan (JPMCC)",
+        "cik": "0001013611",   # JP Morgan Chase Commercial Mortgage Securities Corp — 235+ filings
+        "type": "conduit",
+        "active": True,
+    },
+    "barclays_cmbs": {
+        "name": "Barclays (BBCMS)",
+        "cik": "0001541480",   # Barclays Commercial Mortgage Securities LLC — 153 filings
+        "type": "conduit",
+        "active": True,
+    },
+    "csail": {
+        "name": "Credit Suisse (CSAIL)",
+        "cik": "0001654060",   # Credit Suisse Commercial Mortgage Securities Corp — 60 filings
+        "type": "conduit",     # NOTE: also deposited early MF1 CRE-CLOs; reclassify by deal name
+        "active": True,
+    },
+    "reit_3650": {
+        "name": "3650 REIT",
+        "cik": "0001856217",   # 3650 REIT Commercial Mortgage Securities II LLC — 7 filings
+        "type": "conduit",
+        "active": True,
+    },
+    "lument": {
+        "name": "Lument (ORIX)",
+        "cik": "0001712870",   # Lument Commercial Mortgage Trust — 13 filings
+        "type": "conduit",
+        "active": True,
+    },
+}
+
+ISSUERS.update(CMBS_CONDUIT_ISSUERS)
+
+# ---------------------------------------------------------------------------
+# Commercial MBS — CRE-CLO managers
+# ---------------------------------------------------------------------------
+CRE_CLO_ISSUERS = {
+    "mf1": {
+        "name": "MF1 (Limekiln / Berkshire)",
+        "ciks": ["0001764593", "0001799634", "0001899543", "0001991416"],  # MF1 REIT I/II/II-A/III
+        "type": "cre_clo",
+        "active": True,
+    },
+    "arbor": {
+        "name": "Arbor Realty Trust",
+        "cik": "0001253986",   # Arbor Realty Trust Inc — 43+ filings
+        "type": "cre_clo",
+        "active": True,
+    },
+    "loancore": {
+        "name": "LoanCore Capital",
+        "cik": "0001690478",   # LoanCore Capital Credit REIT LLC — 19 filings
+        "type": "cre_clo",
+        "active": True,
+    },
+    "fs_rialto": {
+        "name": "FS Rialto",
+        "cik": "0001690536",   # FS Credit Real Estate Income Trust Inc — 17 filings
+        "type": "cre_clo",
+        "active": True,
+    },
+    "tpg_re": {
+        "name": "TPG RE Finance",
+        "ciks": ["0001729138", "0001789926"],  # TRTX CLO Loan Seller + Holdco — 16 filings
+        "type": "cre_clo",
+        "active": True,
+    },
+    "greystone": {
+        "name": "Greystone",
+        "cik": "0001784703",   # Greystone Senior Debt Operating Partnership LP — 10 filings
+        "type": "cre_clo",
+        "active": True,
+    },
+}
+
+ISSUERS.update(CRE_CLO_ISSUERS)
+
+
 def get_all_ciks() -> dict[str, str]:
     """
     Return a mapping of issuer_key -> CIK for all registered issuers.
