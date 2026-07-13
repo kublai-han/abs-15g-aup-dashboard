@@ -142,7 +142,7 @@ NAV_STRUCTURE: dict[str, dict] = {
         "subs": [
             {"key": "conduit",    "label": "Conduit",    "issuer_type": "conduit",    "has_data": True},
             {"key": "cre_clo",    "label": "CRE-CLO",    "issuer_type": "cre_clo",    "has_data": True},
-            {"key": "large_loan", "label": "Large-Loan", "issuer_type": "large_loan", "has_data": False},
+            {"key": "large_loan", "label": "Large-Loan", "issuer_type": "large_loan", "has_data": True},
             {"key": "cmbs_other", "label": "Other",      "issuer_type": "cmbs_other", "has_data": False},
         ],
     },
