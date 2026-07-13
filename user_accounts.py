@@ -49,6 +49,19 @@ def _conn() -> sqlite3.Connection:
             conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
         except sqlite3.OperationalError:
             pass  # column already exists
+    # Login sessions — Streamlit starts a fresh server session on every full
+    # page load (all nav links reload the page), so logins are persisted via
+    # a token carried in the URL and validated against this table.
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sessions (
+            token      TEXT PRIMARY KEY,
+            email      TEXT NOT NULL,
+            created_at TEXT,
+            expires_at TEXT
+        )
+        """
+    )
     conn.commit()
     return conn
 
@@ -181,6 +194,62 @@ def update_subscriptions(email: str, subscriptions: list[str]) -> None:
             (json.dumps(subscriptions or []),
              datetime.now(timezone.utc).isoformat(), email),
         )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+_SESSION_DAYS = 30
+
+
+def create_session(email: str) -> str:
+    """Create a login session and return its token."""
+    import secrets
+    from datetime import timedelta
+    token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    conn = _conn()
+    try:
+        conn.execute(
+            "INSERT INTO sessions (token, email, created_at, expires_at) VALUES (?,?,?,?)",
+            (token, (email or "").strip().lower(), now.isoformat(),
+             (now + timedelta(days=_SESSION_DAYS)).isoformat()),
+        )
+        # opportunistic cleanup of expired sessions
+        conn.execute("DELETE FROM sessions WHERE expires_at < ?", (now.isoformat(),))
+        conn.commit()
+    finally:
+        conn.close()
+    return token
+
+
+def get_session_email(token: str) -> str | None:
+    """Return the email for a valid, unexpired session token, else None."""
+    if not token:
+        return None
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT email, expires_at FROM sessions WHERE token=?", (token,)
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    try:
+        if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
+            return None
+    except Exception:
+        return None
+    return row["email"]
+
+
+def delete_session(token: str) -> None:
+    if not token:
+        return
+    conn = _conn()
+    try:
+        conn.execute("DELETE FROM sessions WHERE token=?", (token,))
         conn.commit()
     finally:
         conn.close()

@@ -1357,19 +1357,19 @@ def _nav_html(nav_main: str, nav_sub: str) -> str:
                 disabled_style = "" if s.get("has_data") else "opacity:0.4;pointer-events:none;"
                 dd_items += (
                     f'<a class="bq-dd-item{sub_active_cls}" '
-                    f'href="?nav={nk}&sub={s["key"]}" target="_self" style="{disabled_style}">'
+                    f'href="?nav={nk}&sub={s["key"]}{_tok_qs()}" target="_self" style="{disabled_style}">'
                     f'{s["label"]}</a>'
                 )
             items.append(
                 f'<div class="bq-nav-item{active_cls}">'
-                f'<a class="bq-nav-link" href="?nav={nk}" target="_self">{nsec["label"]}</a>'
+                f'<a class="bq-nav-link" href="?nav={nk}{_tok_qs()}" target="_self">{nsec["label"]}</a>'
                 f'<div class="bq-dropdown">{dd_items}</div>'
                 f'</div>'
             )
         else:
             items.append(
                 f'<div class="bq-nav-item{active_cls}">'
-                f'<a class="bq-nav-link" href="?nav={nk}" target="_self">{nsec["label"]}</a>'
+                f'<a class="bq-nav-link" href="?nav={nk}{_tok_qs()}" target="_self">{nsec["label"]}</a>'
                 f'</div>'
             )
     return "".join(items)
@@ -1446,6 +1446,21 @@ st.markdown("""<style>
 import user_accounts as _ua
 importlib.reload(_ua)
 
+# Restore login from the URL session token: every nav link is a full page
+# load, which starts a fresh Streamlit session and would otherwise log the
+# user out on each click.
+_URL_TOK = _qp.get("s", "")
+if "user_email" not in st.session_state and _URL_TOK:
+    _sess_email = _ua.get_session_email(_URL_TOK)
+    if _sess_email:
+        st.session_state["user_email"] = _sess_email
+
+
+def _tok_qs() -> str:
+    """Query-string suffix that carries the login session across page loads."""
+    return f"&s={_URL_TOK}" if _URL_TOK else ""
+
+
 _user_email = st.session_state.get("user_email")
 _acct_profile = _ua.get_user(_user_email) if _user_email else None
 if _user_email and not _acct_profile:
@@ -1454,7 +1469,8 @@ if _user_email and not _acct_profile:
     _user_email = None
 
 _acct_label = (
-    (f"👤 {_acct_profile['first_name']}" if _acct_profile.get("first_name") else "👤 My Account")
+    (f"Logged in as: <b>{_acct_profile['first_name']}</b>"
+     if _acct_profile.get("first_name") else "Logged in as: <b>My Account</b>")
     if _acct_profile else "👤 Log In / Sign Up"
 )
 
@@ -1468,7 +1484,7 @@ else:
     _ret_sub = nav_sub
 if _ret_nav not in NAV_STRUCTURE:
     _ret_nav = "abs"
-_acct_href = f"?nav=account&ret={_ret_nav}" + (f"&retsub={_ret_sub}" if _ret_sub else "")
+_acct_href = f"?nav=account&ret={_ret_nav}" + (f"&retsub={_ret_sub}" if _ret_sub else "") + _tok_qs()
 
 
 def _return_to_origin():
@@ -1528,6 +1544,7 @@ if nav_main == "account":
                 if st.button("Log In", key="li_btn", use_container_width=True):
                     if _ua.authenticate(_li_email, _li_pw):
                         st.session_state["user_email"] = _li_email.strip().lower()
+                        st.query_params["s"] = _ua.create_session(_li_email)
                         _return_to_origin()
                     else:
                         st.error("Invalid email or password.")
@@ -1553,6 +1570,7 @@ if nav_main == "account":
                     )
                     if _ok:
                         st.session_state["user_email"] = _su_email.strip().lower()
+                        st.query_params["s"] = _ua.create_session(_su_email)
                         _return_to_origin()
                     else:
                         st.error(_msg)
@@ -1582,6 +1600,8 @@ if nav_main == "account":
 
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Log Out", key="mg_logout", use_container_width=True):
+                _ua.delete_session(_URL_TOK)
+                st.query_params.pop("s", None)
                 del st.session_state["user_email"]
                 st.rerun()
     st.markdown('</div></div>', unsafe_allow_html=True)
@@ -1592,7 +1612,7 @@ if nav_sub and _sub_info:
     st.markdown(
         f'<div class="bq-breadcrumb-band">'
         f'<div class="nav-breadcrumb page-wrapper">'
-        f'<a href="?nav={nav_main}" target="_self">{_section["label"]}</a>'
+        f'<a href="?nav={nav_main}{_tok_qs()}" target="_self">{_section["label"]}</a>'
         f'<span class="sep">&gt;</span>'
         f'<span class="bc-current">{_sub_info["label"]}</span>'
         f'</div></div>',
