@@ -43,6 +43,12 @@ def _conn() -> sqlite3.Connection:
         )
         """
     )
+    # Idempotent migrations for the standard profile fields
+    for col in ("first_name", "last_name", "phone", "company"):
+        try:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
     conn.commit()
     return conn
 
@@ -53,9 +59,21 @@ def _hash_password(password: str, salt: bytes) -> str:
     ).hex()
 
 
-def create_account(email: str, password: str, subscriptions: list[str]) -> tuple[bool, str]:
+def create_account(
+    email: str,
+    password: str,
+    subscriptions: list[str],
+    first_name: str = "",
+    last_name: str = "",
+    phone: str = "",
+    company: str = "",
+) -> tuple[bool, str]:
     """Create a new account. Returns (ok, message)."""
     email = (email or "").strip().lower()
+    if not (first_name or "").strip():
+        return False, "Please enter your first name."
+    if not (last_name or "").strip():
+        return False, "Please enter your last name."
     if not _RE_EMAIL.match(email):
         return False, "Please enter a valid email address."
     if len(password or "") < 8:
@@ -66,15 +84,62 @@ def create_account(email: str, password: str, subscriptions: list[str]) -> tuple
     conn = _conn()
     try:
         conn.execute(
-            "INSERT INTO users (email, pw_hash, salt, subscriptions, created_at, updated_at)"
-            " VALUES (?,?,?,?,?,?)",
+            "INSERT INTO users (email, pw_hash, salt, subscriptions, created_at, updated_at,"
+            " first_name, last_name, phone, company)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?)",
             (email, _hash_password(password, salt), salt.hex(),
-             json.dumps(subscriptions or []), now, now),
+             json.dumps(subscriptions or []), now, now,
+             first_name.strip(), last_name.strip(),
+             (phone or "").strip(), (company or "").strip()),
         )
         conn.commit()
         return True, "Account created."
     except sqlite3.IntegrityError:
         return False, "An account with this email already exists."
+    finally:
+        conn.close()
+
+
+def get_user(email: str) -> dict | None:
+    """Return the user's profile (no credential material) or None."""
+    email = (email or "").strip().lower()
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT email, first_name, last_name, phone, company, subscriptions, created_at"
+            " FROM users WHERE email=?", (email,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    try:
+        subs = json.loads(row["subscriptions"] or "[]")
+    except Exception:
+        subs = []
+    return {
+        "email": row["email"],
+        "first_name": row["first_name"] or "",
+        "last_name": row["last_name"] or "",
+        "phone": row["phone"] or "",
+        "company": row["company"] or "",
+        "subscriptions": subs,
+        "created_at": row["created_at"],
+    }
+
+
+def update_profile(email: str, first_name: str, last_name: str, phone: str, company: str) -> None:
+    email = (email or "").strip().lower()
+    conn = _conn()
+    try:
+        conn.execute(
+            "UPDATE users SET first_name=?, last_name=?, phone=?, company=?, updated_at=?"
+            " WHERE email=?",
+            ((first_name or "").strip(), (last_name or "").strip(),
+             (phone or "").strip(), (company or "").strip(),
+             datetime.now(timezone.utc).isoformat(), email),
+        )
+        conn.commit()
     finally:
         conn.close()
 

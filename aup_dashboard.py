@@ -1272,11 +1272,15 @@ last_updated_str = now_utc.strftime("%d %b %Y %H:%M UTC")
 _qp = st.query_params
 nav_main = _qp.get("nav", "abs")
 nav_sub  = _qp.get("sub", "")
-if nav_main not in NAV_STRUCTURE:
+# "account" is a standalone page (login / sign-up / profile), not a section
+if nav_main not in NAV_STRUCTURE and nav_main != "account":
     nav_main = "abs"
 
-_section  = NAV_STRUCTURE[nav_main]
-_sub_info = next((s for s in _section["subs"] if s["key"] == nav_sub), None)
+_section  = NAV_STRUCTURE.get(nav_main)
+_sub_info = (
+    next((s for s in _section["subs"] if s["key"] == nav_sub), None)
+    if _section else None
+)
 
 _cur_type = _sub_info["issuer_type"] if _sub_info else None
 
@@ -1435,23 +1439,20 @@ st.markdown("""<style>
 .bq-dd-item.bq-dd-active { color: #a78bfa; font-weight: 600; }
 </style>""", unsafe_allow_html=True)
 
-# ── Header bar + HTML top nav (single markdown block keeps them flush) ──
-st.markdown(f"""
-<div class="finsight-header">
-  <div class="page-wrapper" style="display:flex;align-items:center;gap:1.25rem;width:100%;padding:0;">
-    <div class="finsight-logo"><span class="finsight-logo-badge">BDQ</span>Bond Data Quality</div>
-    <div class="header-spacer"></div>
-    <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
-  </div>
-</div>
-<nav class="bq-topnav">
-  <div class="page-wrapper" style="display:flex;align-items:stretch;padding:0;width:100%;">
-    {_nav_html(nav_main, nav_sub)}
-  </div>
-</nav>""", unsafe_allow_html=True)
-
-# ── Account / daily-alert signup (top right) ──
+# ── Account state + alert options ──
 import user_accounts as _ua
+
+_user_email = st.session_state.get("user_email")
+_acct_profile = _ua.get_user(_user_email) if _user_email else None
+if _user_email and not _acct_profile:
+    # account deleted / users.db reset — drop the stale session
+    del st.session_state["user_email"]
+    _user_email = None
+
+_acct_label = (
+    f"👤 {_acct_profile['first_name'] or _user_email}" if _acct_profile
+    else "👤 Log In / Sign Up"
+)
 
 # label -> issuer_type for every sub-category that has data
 _ALERT_OPTIONS: dict[str, str] = {}
@@ -1461,24 +1462,37 @@ for _sec_a in NAV_STRUCTURE.values():
             _ALERT_OPTIONS[f"{_sec_a['short']} — {_s_a['label']}"] = _s_a["issuer_type"]
 _TYPE_TO_LABEL = {v: k for k, v in _ALERT_OPTIONS.items()}
 
-st.markdown("""<style>
-/* Compact top-right account popover row */
-[data-testid="stHorizontalBlock"]:has(.acct-sentinel) { margin: -0.4rem 0 -0.6rem; }
-[data-testid="stHorizontalBlock"]:has(.acct-sentinel) [data-testid="stPopover"] button {
-    background: #1e1e3f !important; border: 1px solid #2d2d5e !important;
-    color: #a78bfa !important; font-size: .78rem !important;
-    padding: .25rem .8rem !important; border-radius: 6px !important;
-}
-</style>""", unsafe_allow_html=True)
+# ── Header bar + HTML top nav (single markdown block keeps them flush) ──
+st.markdown(f"""<style>
+.bq-acct-link {{
+    background: #1e1e3f; border: 1px solid #2d2d5e; border-radius: 6px;
+    color: #a78bfa !important; font-size: .78rem; font-weight: 600;
+    padding: .3rem .85rem; text-decoration: none !important;
+    white-space: nowrap; transition: background .15s;
+}}
+.bq-acct-link:hover {{ background: #2d2d5e; }}
+</style>
+<div class="finsight-header">
+  <div class="page-wrapper" style="display:flex;align-items:center;gap:1.25rem;width:100%;padding:0;">
+    <div class="finsight-logo"><span class="finsight-logo-badge">BDQ</span>Bond Data Quality</div>
+    <div class="header-spacer"></div>
+    <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
+    <a class="bq-acct-link" href="?nav=account" target="_self">{_acct_label}</a>
+  </div>
+</div>
+<nav class="bq-topnav">
+  <div class="page-wrapper" style="display:flex;align-items:stretch;padding:0;width:100%;">
+    {_nav_html(nav_main, nav_sub)}
+  </div>
+</nav>""", unsafe_allow_html=True)
 
-_acct_sp, _acct_col = st.columns([8.5, 1.5])
-with _acct_sp:
-    st.markdown('<span class="acct-sentinel" style="display:none;"></span>', unsafe_allow_html=True)
-with _acct_col:
-    _user_email = st.session_state.get("user_email")
-    with st.popover(f"👤 {_user_email}" if _user_email else "👤 Log In / Sign Up",
-                    use_container_width=True):
+# ── Account page (login / sign-up / profile) ──
+if nav_main == "account":
+    st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
+    _pad_l, _acct_mid, _pad_r = st.columns([1, 2, 1])
+    with _acct_mid:
         if not _user_email:
+            st.markdown('<div class="finsight-section-title">Account</div>', unsafe_allow_html=True)
             _tab_li, _tab_su = st.tabs(["Log In", "Create Account"])
             with _tab_li:
                 _li_email = st.text_input("Email", key="li_email")
@@ -1490,6 +1504,13 @@ with _acct_col:
                     else:
                         st.error("Invalid email or password.")
             with _tab_su:
+                _su_c1, _su_c2 = st.columns(2)
+                with _su_c1:
+                    _su_first = st.text_input("First Name", key="su_first")
+                with _su_c2:
+                    _su_last = st.text_input("Last Name", key="su_last")
+                _su_phone = st.text_input("Phone Number", key="su_phone")
+                _su_company = st.text_input("Company Name", key="su_company")
                 _su_email = st.text_input("Email", key="su_email")
                 _su_pw = st.text_input("Password (8+ characters)", type="password", key="su_pw")
                 _su_subs = st.multiselect(
@@ -1498,7 +1519,9 @@ with _acct_col:
                 )
                 if st.button("Create Account", key="su_btn", use_container_width=True):
                     _ok, _msg = _ua.create_account(
-                        _su_email, _su_pw, [_ALERT_OPTIONS[l] for l in _su_subs]
+                        _su_email, _su_pw, [_ALERT_OPTIONS[l] for l in _su_subs],
+                        first_name=_su_first, last_name=_su_last,
+                        phone=_su_phone, company=_su_company,
                     )
                     if _ok:
                         st.session_state["user_email"] = _su_email.strip().lower()
@@ -1506,9 +1529,21 @@ with _acct_col:
                     else:
                         st.error(_msg)
         else:
-            st.markdown(f"Signed in as **{_user_email}**")
-            _cur_subs = _ua.get_subscriptions(_user_email)
-            _cur_labels = [_TYPE_TO_LABEL[t] for t in _cur_subs if t in _TYPE_TO_LABEL]
+            st.markdown('<div class="finsight-section-title">My Profile</div>', unsafe_allow_html=True)
+            _pf_c1, _pf_c2 = st.columns(2)
+            with _pf_c1:
+                _pf_first = st.text_input("First Name", value=_acct_profile["first_name"], key="pf_first")
+            with _pf_c2:
+                _pf_last = st.text_input("Last Name", value=_acct_profile["last_name"], key="pf_last")
+            _pf_phone = st.text_input("Phone Number", value=_acct_profile["phone"], key="pf_phone")
+            _pf_company = st.text_input("Company Name", value=_acct_profile["company"], key="pf_company")
+            st.text_input("Email", value=_acct_profile["email"], disabled=True, key="pf_email")
+            if st.button("Save Profile", key="pf_save", use_container_width=True):
+                _ua.update_profile(_user_email, _pf_first, _pf_last, _pf_phone, _pf_company)
+                st.success("Profile saved.")
+
+            st.markdown('<div class="finsight-section-title">Daily Update Preferences</div>', unsafe_allow_html=True)
+            _cur_labels = [_TYPE_TO_LABEL[t] for t in _acct_profile["subscriptions"] if t in _TYPE_TO_LABEL]
             _mg_subs = st.multiselect(
                 "Daily updates on new AUP results for:",
                 list(_ALERT_OPTIONS.keys()), default=_cur_labels, key="mg_subs",
@@ -1516,9 +1551,13 @@ with _acct_col:
             if st.button("Save Preferences", key="mg_save", use_container_width=True):
                 _ua.update_subscriptions(_user_email, [_ALERT_OPTIONS[l] for l in _mg_subs])
                 st.success("Preferences saved.")
+
+            st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Log Out", key="mg_logout", use_container_width=True):
                 del st.session_state["user_email"]
                 st.rerun()
+    st.markdown('</div></div>', unsafe_allow_html=True)
+    st.stop()
 
 # ── Breadcrumb (shown when inside a subcategory) ──
 if nav_sub and _sub_info:
