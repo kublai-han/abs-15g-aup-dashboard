@@ -106,14 +106,18 @@ def extract_provider(text: str) -> str | None:
 conn = sqlite3.connect(DB)
 conn.row_factory = sqlite3.Row
 
-rows = conn.execute("""
+# Optional: pass a fetched_at cutoff (ISO date) to only process rows
+# ingested on/after that date, e.g.  python fix_cmbs.py 2026-07-13
+_cutoff = sys.argv[1] if len(sys.argv) > 1 else None
+_where_extra = " AND f.fetched_at >= ?" if _cutoff else ""
+rows = conn.execute(f"""
     SELECT f.id, f.accession_no, f.issuer_key, f.filed_date, f.deal_name, f.aup_provider,
            f.asset_type, f.exhibit_url,
            (SELECT p.id FROM procedures p WHERE p.filing_id = f.id LIMIT 1) AS pid
     FROM filings f
-    WHERE f.asset_type IN ('conduit', 'cre_clo')
+    WHERE f.asset_type IN ('conduit', 'cre_clo'){_where_extra}
     ORDER BY f.filed_date DESC
-""").fetchall()
+""", (_cutoff,) if _cutoff else ()).fetchall()
 
 p(f"CMBS filings to process: {len(rows)}")
 now = datetime.now(timezone.utc).isoformat()

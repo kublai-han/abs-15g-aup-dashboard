@@ -609,6 +609,71 @@ CRE_CLO_ISSUERS = {
         "type": "cre_clo",
         "active": True,
     },
+    "dwight": {
+        "name": "Dwight Mortgage Trust",
+        "cik": "0001729201",   # Dwight Mortgage Trust LLC — DWIGHT FL shelf
+        "type": "cre_clo",
+        "active": True,
+    },
+    "acre": {
+        "name": "ACRE (Asia Capital RE)",
+        # Fund-vintage REIT entities each file their own 15Gs (ACREC FL shelf)
+        "ciks": ["0001837644", "0001932333", "0001942979", "0002047328"],
+        "type": "cre_clo",
+        "active": True,
+    },
+    "invesco_cre": {
+        "name": "Invesco CRE Finance Trust",
+        "cik": "0002062476",   # Invesco Commercial Real Estate Finance Investments LP — INCREF FL shelf
+        "type": "cre_clo",
+        "active": True,
+    },
+    "prime_finance": {
+        "name": "Prime Finance (PFP)",
+        # The fund entities (Prime Finance Partners / Short Duration) file only
+        # 15Ga-1 annuals; the 15Ga-2 AUP reports are filed by per-deal issuers.
+        "ciks": [
+            "0001647988",  # PFP 2015-2, Ltd.
+            "0001699066",  # PFP 2017-3, Ltd.
+            "0001715545",  # PFP 2017-4, Ltd.
+            "0001770549",  # PFP 2019-5, Ltd.
+            "0001791105",  # PFP 2019-6, Ltd.
+            "0001846763",  # PFP 2021-7, Ltd.
+            "0001878335",  # PFP 2021-8, Ltd.
+            "0001944626",  # PFP 2022-9, Ltd.
+            "0001983136",  # PFP 2023-10, Ltd.
+            "0002029519",  # PFP 2024-11, Ltd.
+            "0002068089",  # PFP 2025-12, Ltd.
+            "0002100128",  # PFP 2026-13, Ltd.
+            "0002131428",  # PFP 2026-14, Ltd.
+        ],
+        "type": "cre_clo",
+        "active": True,
+    },
+    "benefit_street": {
+        "name": "Benefit Street Partners (BSPRT/BSPDF)",
+        "ciks": ["0001706927", "0001882429", "0002060626"],  # Realty OP + OF OP I/II
+        "type": "cre_clo",
+        "active": True,
+    },
+    "varde": {
+        "name": "Varde Partners (VMC)",
+        "ciks": ["0001727257", "0001910658", "0002063471"],  # VMC Lender / Master Lender REITs
+        "type": "cre_clo",
+        "active": True,
+    },
+    "bridge_bds": {
+        "name": "Bridge Investment Group (BDS)",
+        "ciks": ["0001759128", "0001836081", "0002048234", "0001729853"],  # BDS III/IV/V + Loan Seller
+        "type": "cre_clo",
+        "active": True,
+    },
+    "d2": {
+        "name": "D2 Asset Management",
+        "cik": "0002125701",   # D2 Multifamily Credit Partners LP — D2 FL1
+        "type": "cre_clo",
+        "active": True,
+    },
 }
 
 ISSUERS.update(CRE_CLO_ISSUERS)

@@ -1,4 +1,4 @@
-﻿"""
+"""
 aup_updater.py
 
 Daily updater that checks SEC EDGAR for new ABS-15G filings, downloads
@@ -744,6 +744,7 @@ def fetch_filings_for_issuer(cik: str, issuer_key: str) -> list[dict]:
                 "filed_date":       filed_dates[i] if i < len(filed_dates) else "",
                 "period_of_report": periods[i]     if i < len(periods)     else "",
                 "exhibit_url":      _build_exhibit_url(cik, acc, primary_doc),
+                "cik":              cik,
             }
         )
 
@@ -776,6 +777,7 @@ def fetch_filings_for_issuer(cik: str, issuer_key: str) -> list[dict]:
                     "filed_date":       fd_list[i]  if i < len(fd_list)  else "",
                     "period_of_report": per_list[i] if i < len(per_list) else "",
                     "exhibit_url":      _build_exhibit_url(cik, acc, pdoc),
+                    "cik":              cik,
                 }
             )
 
@@ -847,6 +849,9 @@ def check_for_new_filings() -> dict:
                 accession_no = filing["accession_no"]
                 if not accession_no:
                     continue
+                # CIK of the entity that actually filed this accession —
+                # multi-CIK issuers must not use the loop-leaked last cik
+                cik = filing.get("cik") or cik_list[-1]
 
                 # Previously examined and skipped (e.g. 15Ga-1 certification)
                 # ? don't re-download / re-parse it on every run.
