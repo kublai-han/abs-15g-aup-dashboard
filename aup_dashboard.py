@@ -1454,9 +1454,33 @@ if _user_email and not _acct_profile:
     _user_email = None
 
 _acct_label = (
-    f"👤 {_acct_profile['first_name'] or _user_email}" if _acct_profile
-    else "👤 Log In / Sign Up"
+    (f"👤 {_acct_profile['first_name']}" if _acct_profile.get("first_name") else "👤 My Account")
+    if _acct_profile else "👤 Log In / Sign Up"
 )
+
+# The account link carries a return address so that logging in sends the
+# user back to the page they were on, not to the profile page.
+if nav_main == "account":
+    _ret_nav = _qp.get("ret", "abs")
+    _ret_sub = _qp.get("retsub", "")
+else:
+    _ret_nav = nav_main
+    _ret_sub = nav_sub
+if _ret_nav not in NAV_STRUCTURE:
+    _ret_nav = "abs"
+_acct_href = f"?nav=account&ret={_ret_nav}" + (f"&retsub={_ret_sub}" if _ret_sub else "")
+
+
+def _return_to_origin():
+    """Send the user back to the page they came from before the account page."""
+    st.query_params["nav"] = _ret_nav
+    if _ret_sub:
+        st.query_params["sub"] = _ret_sub
+    else:
+        st.query_params.pop("sub", None)
+    st.query_params.pop("ret", None)
+    st.query_params.pop("retsub", None)
+    st.rerun()
 
 # label -> issuer_type for every sub-category that has data
 _ALERT_OPTIONS: dict[str, str] = {}
@@ -1481,7 +1505,7 @@ st.markdown(f"""<style>
     <div class="finsight-logo"><span class="finsight-logo-badge">BDQ</span>Bond Data Quality</div>
     <div class="header-spacer"></div>
     <div class="finsight-updated-badge">Updated: {last_updated_str}</div>
-    <a class="bq-acct-link" href="?nav=account" target="_self">{_acct_label}</a>
+    <a class="bq-acct-link" href="{_acct_href}" target="_self">{_acct_label}</a>
   </div>
 </div>
 <nav class="bq-topnav">
@@ -1504,7 +1528,7 @@ if nav_main == "account":
                 if st.button("Log In", key="li_btn", use_container_width=True):
                     if _ua.authenticate(_li_email, _li_pw):
                         st.session_state["user_email"] = _li_email.strip().lower()
-                        st.rerun()
+                        _return_to_origin()
                     else:
                         st.error("Invalid email or password.")
             with _tab_su:
@@ -1529,7 +1553,7 @@ if nav_main == "account":
                     )
                     if _ok:
                         st.session_state["user_email"] = _su_email.strip().lower()
-                        st.rerun()
+                        _return_to_origin()
                     else:
                         st.error(_msg)
         else:
