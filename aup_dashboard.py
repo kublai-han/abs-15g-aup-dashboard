@@ -37,6 +37,14 @@ if str(_DIR) not in sys.path:
     sys.path.insert(0, str(_DIR))
 
 import aup_database as db
+
+# Reload the issuer registry on every script run. Streamlit re-executes this
+# main script per rerun but caches imported modules for the life of the
+# process — on Streamlit Cloud a git push updates issuers.py on disk without
+# rebooting, leaving a stale ISSUERS in memory (new nav sections then show
+# "No issuers found").
+import issuers as _issuers_mod
+importlib.reload(_issuers_mod)
 from issuers import ISSUERS
 
 # ---------------------------------------------------------------------------
