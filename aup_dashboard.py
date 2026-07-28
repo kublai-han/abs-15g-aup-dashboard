@@ -1546,9 +1546,11 @@ if nav_main == "account":
             st.markdown('<div class="finsight-section-title">Account</div>', unsafe_allow_html=True)
             _tab_li, _tab_su = st.tabs(["Log In", "Create Account"])
             with _tab_li:
-                _li_email = st.text_input("Email", key="li_email")
-                _li_pw = st.text_input("Password", type="password", key="li_pw")
-                if st.button("Log In", key="li_btn", use_container_width=True):
+                with st.form("login_form", border=False):
+                    _li_email = st.text_input("Email", key="li_email")
+                    _li_pw = st.text_input("Password", type="password", key="li_pw")
+                    _li_submit = st.form_submit_button("Log In", use_container_width=True)
+                if _li_submit:
                     if _ua.authenticate(_li_email, _li_pw):
                         st.session_state["user_email"] = _li_email.strip().lower()
                         st.query_params["s"] = _ua.create_session(_li_email)
@@ -1556,20 +1558,22 @@ if nav_main == "account":
                     else:
                         st.error("Invalid email or password.")
             with _tab_su:
-                _su_c1, _su_c2 = st.columns(2)
-                with _su_c1:
-                    _su_first = st.text_input("First Name", key="su_first")
-                with _su_c2:
-                    _su_last = st.text_input("Last Name", key="su_last")
-                _su_phone = st.text_input("Phone Number", key="su_phone")
-                _su_company = st.text_input("Company Name", key="su_company")
-                _su_email = st.text_input("Email", key="su_email")
-                _su_pw = st.text_input("Password (8+ characters)", type="password", key="su_pw")
-                _su_subs = st.multiselect(
-                    "Send me daily updates on new AUP results for:",
-                    list(_ALERT_OPTIONS.keys()), key="su_subs",
-                )
-                if st.button("Create Account", key="su_btn", use_container_width=True):
+                with st.form("signup_form", border=False):
+                    _su_c1, _su_c2 = st.columns(2)
+                    with _su_c1:
+                        _su_first = st.text_input("First Name", key="su_first")
+                    with _su_c2:
+                        _su_last = st.text_input("Last Name", key="su_last")
+                    _su_phone = st.text_input("Phone Number", key="su_phone")
+                    _su_company = st.text_input("Company Name", key="su_company")
+                    _su_email = st.text_input("Email", key="su_email")
+                    _su_pw = st.text_input("Password (8+ characters)", type="password", key="su_pw")
+                    _su_subs = st.multiselect(
+                        "Send me daily updates on new AUP results for:",
+                        list(_ALERT_OPTIONS.keys()), key="su_subs",
+                    )
+                    _su_submit = st.form_submit_button("Create Account", use_container_width=True)
+                if _su_submit:
                     _ok, _msg = _ua.create_account(
                         _su_email, _su_pw, [_ALERT_OPTIONS[l] for l in _su_subs],
                         first_name=_su_first, last_name=_su_last,
@@ -1583,15 +1587,17 @@ if nav_main == "account":
                         st.error(_msg)
         else:
             st.markdown('<div class="finsight-section-title">My Profile</div>', unsafe_allow_html=True)
-            _pf_c1, _pf_c2 = st.columns(2)
-            with _pf_c1:
-                _pf_first = st.text_input("First Name", value=_acct_profile["first_name"], key="pf_first")
-            with _pf_c2:
-                _pf_last = st.text_input("Last Name", value=_acct_profile["last_name"], key="pf_last")
-            _pf_phone = st.text_input("Phone Number", value=_acct_profile["phone"], key="pf_phone")
-            _pf_company = st.text_input("Company Name", value=_acct_profile["company"], key="pf_company")
-            st.text_input("Email", value=_acct_profile["email"], disabled=True, key="pf_email")
-            if st.button("Save Profile", key="pf_save", use_container_width=True):
+            with st.form("profile_form", border=False):
+                _pf_c1, _pf_c2 = st.columns(2)
+                with _pf_c1:
+                    _pf_first = st.text_input("First Name", value=_acct_profile["first_name"], key="pf_first")
+                with _pf_c2:
+                    _pf_last = st.text_input("Last Name", value=_acct_profile["last_name"], key="pf_last")
+                _pf_phone = st.text_input("Phone Number", value=_acct_profile["phone"], key="pf_phone")
+                _pf_company = st.text_input("Company Name", value=_acct_profile["company"], key="pf_company")
+                st.text_input("Email", value=_acct_profile["email"], disabled=True, key="pf_email")
+                _pf_submit = st.form_submit_button("Save Profile", use_container_width=True)
+            if _pf_submit:
                 _ua.update_profile(_user_email, _pf_first, _pf_last, _pf_phone, _pf_company)
                 st.success("Profile saved.")
 
