@@ -1535,6 +1535,13 @@ if nav_main == "account":
     st.markdown('<div class="finsight-content"><div class="page-wrapper">', unsafe_allow_html=True)
     _pad_l, _acct_mid, _pad_r = st.columns([1, 2, 1])
     with _acct_mid:
+        if _ua.backend_name() == "sheets":
+            st.caption("🟢 Accounts stored durably in Google Sheets")
+        else:
+            st.caption(
+                "🟡 Accounts in temporary storage — they reset when the app "
+                "redeploys. Configure the Google Sheets secrets for durable accounts."
+            )
         if not _user_email:
             st.markdown('<div class="finsight-section-title">Account</div>', unsafe_allow_html=True)
             _tab_li, _tab_su = st.tabs(["Log In", "Create Account"])
