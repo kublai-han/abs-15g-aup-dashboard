@@ -1620,6 +1620,23 @@ if nav_main == "account":
     st.markdown('</div></div>', unsafe_allow_html=True)
     st.stop()
 
+# ── GoatCounter traffic pixel ──
+# Counts one pageview per load, tagged with the section path (e.g. /cmbs/cre_clo).
+# Activates when goatcounter_code is set in Streamlit secrets; the session
+# token is never included in the tracked path.
+try:
+    _gc_code = st.secrets.get("goatcounter_code", "")
+except Exception:
+    _gc_code = ""
+if _gc_code:
+    _gc_path = f"/{nav_main}" + (f"/{nav_sub}" if nav_sub else "")
+    _gc_rnd = int(datetime.now(timezone.utc).timestamp() * 1000)
+    st.markdown(
+        f'<img src="https://{_gc_code}.goatcounter.com/count?p={_gc_path}&rnd={_gc_rnd}" '
+        f'alt="" width="1" height="1" style="position:absolute;opacity:0;pointer-events:none;">',
+        unsafe_allow_html=True,
+    )
+
 # ── Breadcrumb (shown when inside a subcategory) ──
 if nav_sub and _sub_info:
     st.markdown(
