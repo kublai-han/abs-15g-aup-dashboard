@@ -438,6 +438,8 @@ _KNOWN_AUDIT_FIRMS = (
     "protiviti",
     # CBIZ MHM ? consulting firm used for small business loan AUP engagements
     "cbiz",
+    # FTI Consulting ? advisor for fiber ABS AUP engagements (Zayo, ALLO)
+    "fti consulting",
     # Third-party review (TPR) firms used for MBS due-diligence reports
     "amc diligence",
     "dynamc",

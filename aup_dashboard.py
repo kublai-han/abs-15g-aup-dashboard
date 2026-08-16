@@ -123,8 +123,8 @@ NAV_STRUCTURE: dict[str, dict] = {
             {"key": "student_loans",  "label": "Student Loans",  "issuer_type": "student_loan",  "has_data": True},
             {"key": "small_business", "label": "Small Business Loans", "issuer_type": "small_business_loan", "has_data": True},
             {"key": "aircraft",       "label": "Aircraft",             "issuer_type": "aircraft",            "has_data": False},
-            {"key": "datacenter",     "label": "Datacenter",           "issuer_type": "datacenter",          "has_data": False},
-            {"key": "fiber",          "label": "Fiber",                "issuer_type": "fiber",               "has_data": False},
+            {"key": "datacenter",     "label": "Datacenter",           "issuer_type": "datacenter",          "has_data": True},
+            {"key": "fiber",          "label": "Fiber",                "issuer_type": "fiber",               "has_data": True},
             {"key": "fleet_lease",    "label": "Fleet Lease",          "issuer_type": "fleet_lease",         "has_data": False},
             {"key": "esoteric",       "label": "Esoteric",             "issuer_type": "esoteric",            "has_data": False},
         ],
@@ -2165,6 +2165,11 @@ with tab3:
                 "credit_card": "Credit Card",
                 "student_loan": "Student Loan",
                 "small_business_loan": "Small Business Loan",
+                "datacenter": "Datacenter",
+                "fiber": "Fiber",
+                "conduit": "Conduit CMBS",
+                "cre_clo": "CRE-CLO",
+                "large_loan": "Large-Loan CMBS",
             }
             df["asset_type"] = df["asset_type"].fillna("consumer_loan")
             df["Asset Type"] = df["asset_type"].map(_ASSET_LABELS).fillna(df["asset_type"])

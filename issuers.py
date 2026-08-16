@@ -512,6 +512,107 @@ ISSUERS.update(RTL_ISSUERS)
 
 
 # ---------------------------------------------------------------------------
+# Datacenter ABS — whole-business / lease revenue securitizations
+# ---------------------------------------------------------------------------
+DATACENTER_ISSUERS = {
+    "vantage": {
+        "name": "Vantage Data Centers",
+        "cik": "0001727983",   # Vantage Data Centers Holdings, LLC — 16 filings
+        "type": "datacenter",
+        "active": True,
+    },
+    "aligned": {
+        "name": "Aligned Data Centers",
+        "cik": "0001872842",   # ADC Holdco, LLC — 5 filings (Issuer LLC co-files, skipped)
+        "type": "datacenter",
+        "active": True,
+    },
+    "compass": {
+        "name": "Compass Datacenters",
+        # Shelf entities: LLC (orig), A, Issuer III, Core
+        "ciks": ["0001555595", "0002010745", "0002055320", "0002145991"],
+        "type": "datacenter",
+        "active": True,
+    },
+    "databank": {
+        "name": "DataBank",
+        "cik": "0001822808",   # DataBank Holdings Ltd. — 12 filings
+        "type": "datacenter",
+        "active": True,
+    },
+    "stack": {
+        "name": "Stack Infrastructure",
+        "cik": "0001765411",   # STACK INFRASTRUCTURE PARENT, LLC — 10 filings (Issuer co-files)
+        "type": "datacenter",
+        "active": True,
+    },
+    "sabey": {
+        "name": "Sabey Data Centers",
+        "cik": "0001805907",   # Sabey Data Center Asset Holdings LLC — 8 filings
+        "type": "datacenter",
+        "active": True,
+    },
+    "flexential": {
+        "name": "Flexential",
+        "cik": "0001889928",   # Flexential Corp. — 10 filings
+        "type": "datacenter",
+        "active": True,
+    },
+    "cyrusone": {
+        "name": "CyrusOne (KKR/GIP)",
+        "cik": "0001575810",   # CyrusOne LP — 4 filings (Issuer I co-files, skipped)
+        "type": "datacenter",
+        "active": True,
+    },
+    "edgeconnex": {
+        "name": "EdgeConneX",
+        "ciks": ["0002113260", "0001919380"],  # Holdings IV-D B.V. + N.A. Finance Holdings V
+        "type": "datacenter",
+        "active": True,
+    },
+}
+
+ISSUERS.update(DATACENTER_ISSUERS)
+
+# ---------------------------------------------------------------------------
+# Fiber ABS — fiber network revenue securitizations
+# ---------------------------------------------------------------------------
+FIBER_ISSUERS = {
+    "zayo": {
+        "name": "Zayo Group",
+        "cik": "0001502756",   # Zayo Group LLC — 4 filings
+        "type": "fiber",
+        "active": True,
+    },
+    "allo": {
+        "name": "ALLO Communications",
+        "cik": "0001974133",   # Allo Issuer, LLC — 2 filings (Allo Communications co-files)
+        "type": "fiber",
+        "active": True,
+    },
+    "hotwire": {
+        "name": "Hotwire Communications",
+        "cik": "0001887952",   # Hotwire Communications, Ltd. — 3 filings
+        "type": "fiber",
+        "active": True,
+    },
+    "lightpath": {
+        "name": "Cablevision Lightpath",
+        "cik": "0002083615",   # Cablevision Lightpath LLC — 1 filing
+        "type": "fiber",
+        "active": True,
+    },
+    "uniti": {
+        "name": "Uniti Fiber",
+        "cik": "0002051125",   # Uniti Fiber Holdings Inc — 4 filings
+        "type": "fiber",
+        "active": True,
+    },
+}
+
+ISSUERS.update(FIBER_ISSUERS)
+
+# ---------------------------------------------------------------------------
 # Commercial MBS — Conduit (multi-borrower) depositors
 # NOTE: SASB / large-loan deals often file under these same bank depositors;
 # per-filing asset_type can be reclassified later if needed.
