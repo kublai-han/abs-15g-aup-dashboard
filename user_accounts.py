@@ -485,3 +485,151 @@ def delete_session(token: str) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Email notifications
+#
+# SMTP settings come from Streamlit secrets (when running inside the app) or
+# environment variables (when running from GitHub Actions / cron):
+#
+#     smtp_host / SMTP_HOST     e.g. smtp.gmail.com
+#     smtp_port / SMTP_PORT     e.g. 587
+#     smtp_user / SMTP_USER     login, and the default From address
+#     smtp_pass / SMTP_PASS     password or app password
+#     smtp_from / SMTP_FROM     optional From override
+#     admin_email / ADMIN_EMAIL optional; defaults to smtp_user
+#
+# Every helper here fails soft: if mail is not configured or the send fails,
+# it returns False rather than raising, so signups are never blocked.
+# ---------------------------------------------------------------------------
+
+_SMTP_KEYS = ("smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_from", "admin_email")
+
+
+def smtp_config() -> dict | None:
+    """Return SMTP settings, or None when mail is not configured."""
+    cfg: dict[str, str] = {}
+    try:
+        import streamlit as st
+        for k in _SMTP_KEYS:
+            if k in st.secrets:
+                cfg[k.upper()] = str(st.secrets[k])
+    except Exception:
+        pass
+    for k in _SMTP_KEYS:
+        env = os.environ.get(k.upper())
+        if env and k.upper() not in cfg:
+            cfg[k.upper()] = env
+    if not (cfg.get("SMTP_HOST") and cfg.get("SMTP_USER") and cfg.get("SMTP_PASS")):
+        return None
+    cfg.setdefault("SMTP_PORT", "587")
+    cfg.setdefault("SMTP_FROM", cfg["SMTP_USER"])
+    cfg.setdefault("ADMIN_EMAIL", cfg["SMTP_USER"])
+    return cfg
+
+
+def mail_configured() -> bool:
+    return smtp_config() is not None
+
+
+def send_email(to: str, subject: str, body: str) -> bool:
+    """Send one plain-text email. Returns True on success, False otherwise."""
+    cfg = smtp_config()
+    if not cfg or not to:
+        return False
+    import smtplib
+    from email.mime.text import MIMEText
+    try:
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = cfg["SMTP_FROM"]
+        msg["To"] = to
+        with smtplib.SMTP(cfg["SMTP_HOST"], int(cfg["SMTP_PORT"]), timeout=30) as smtp:
+            smtp.starttls()
+            smtp.login(cfg["SMTP_USER"], cfg["SMTP_PASS"])
+            smtp.send_message(msg)
+        return True
+    except Exception:
+        return False
+
+
+def admin_email() -> str:
+    cfg = smtp_config()
+    return cfg["ADMIN_EMAIL"] if cfg else ""
+
+
+def notify_new_signup(email: str, label_for_type=None, background: bool = True) -> bool:
+    """
+    Email the site owner that a new account was created.
+
+    label_for_type: optional callable mapping an issuer_type to a display
+    label, so the alert lists readable asset-class names.
+    background: send on a daemon thread (default) so a slow or unreachable
+    mail server never stalls the signup form. Returns True when the send was
+    dispatched; pass background=False to get the actual send result.
+    """
+    if background:
+        import threading
+        threading.Thread(
+            target=lambda: notify_new_signup(email, label_for_type, background=False),
+            daemon=True,
+        ).start()
+        return True
+
+    user = get_user(email)
+    if not user:
+        return False
+    subs = user["subscriptions"]
+    if label_for_type:
+        subs = [label_for_type(t) for t in subs]
+    body = (
+        "A new user signed up on Bond Data Quality.\n\n"
+        f"  Name:    {user['first_name']} {user['last_name']}".rstrip() + "\n"
+        f"  Email:   {user['email']}\n"
+        f"  Company: {user['company'] or '-'}\n"
+        f"  Phone:   {user['phone'] or '-'}\n"
+        f"  Alerts:  {', '.join(subs) if subs else 'none selected'}\n"
+        f"  Signed up: {user['created_at']}\n\n"
+        "https://bonddataquality.streamlit.app\n"
+    )
+    return send_email(admin_email(), "New Bond Data Quality signup", body)
+
+
+def users_created_since(iso_cutoff: str) -> list[dict]:
+    """All accounts created on/after an ISO timestamp (for the daily digest)."""
+    out = []
+    ws = _ws("users", _USER_HEADERS)
+    if ws is not None:
+        for rec in _ws_records(ws):
+            if (rec.get("created_at") or "") >= iso_cutoff:
+                out.append({
+                    "email": rec["email"],
+                    "first_name": rec.get("first_name", ""),
+                    "last_name": rec.get("last_name", ""),
+                    "phone": rec.get("phone", ""),
+                    "company": rec.get("company", ""),
+                    "subscriptions": _parse_subs(rec.get("subscriptions", "")),
+                    "created_at": rec.get("created_at", ""),
+                })
+        return out
+
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT email, first_name, last_name, phone, company, subscriptions, created_at"
+            " FROM users WHERE created_at >= ?", (iso_cutoff,),
+        ).fetchall()
+    finally:
+        conn.close()
+    for r in rows:
+        out.append({
+            "email": r["email"],
+            "first_name": r["first_name"] or "",
+            "last_name": r["last_name"] or "",
+            "phone": r["phone"] or "",
+            "company": r["company"] or "",
+            "subscriptions": _parse_subs(r["subscriptions"]),
+            "created_at": r["created_at"],
+        })
+    return out

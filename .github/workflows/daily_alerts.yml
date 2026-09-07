@@ -1,0 +1,42 @@
+name: Daily Alert Emails
+
+# Runs 90 minutes after the database update so the digest reflects the
+# filings ingested that evening.
+on:
+  schedule:
+    - cron: '30 23 * * *'   # 6:30 PM ET (EST); shifts to 7:30 PM during EDT
+  workflow_dispatch:         # allow manual send from the Actions UI
+
+jobs:
+  send-alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Send daily alert emails
+        env:
+          # Mail login — add these as repository secrets
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          # Google Sheets account store (same values as the Streamlit secrets)
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          USERS_SHEET_ID: ${{ secrets.USERS_SHEET_ID }}
+        run: python send_daily_alerts.py

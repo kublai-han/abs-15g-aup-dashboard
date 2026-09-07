@@ -15,6 +15,7 @@ Tabs
 from __future__ import annotations
 
 import importlib
+import os
 import re
 import traceback
 from datetime import datetime, timezone
@@ -1580,6 +1581,15 @@ if nav_main == "account":
                         phone=_su_phone, company=_su_company,
                     )
                     if _ok:
+                        # Alert the site owner about the new signup. Never let a
+                        # mail failure block the account creation itself.
+                        try:
+                            _ua.notify_new_signup(
+                                _su_email,
+                                label_for_type=lambda t: _TYPE_TO_LABEL.get(t, t),
+                            )
+                        except Exception:
+                            pass
                         st.session_state["user_email"] = _su_email.strip().lower()
                         st.query_params["s"] = _ua.create_session(_su_email)
                         _return_to_origin()
@@ -1628,6 +1638,9 @@ try:
     _gc_code = st.secrets.get("goatcounter_code", "")
 except Exception:
     _gc_code = ""
+_gc_code = (_gc_code or os.environ.get("GOATCOUNTER_CODE", "")).strip()
+# Accept a bare code ("mysite"), a host, or a full URL — keep the subdomain only
+_gc_code = re.sub(r"^https?://", "", _gc_code).split(".goatcounter.com")[0].strip("/")
 if _gc_code:
     _gc_path = f"/{nav_main}" + (f"/{nav_sub}" if nav_sub else "")
     _gc_rnd = int(datetime.now(timezone.utc).timestamp() * 1000)

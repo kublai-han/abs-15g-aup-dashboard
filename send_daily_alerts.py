@@ -1,114 +1,160 @@
 """
 send_daily_alerts.py
 
-Email subscribers a daily digest of new AUP results for the asset classes
-they selected at sign-up.
+Two jobs, run once a day (see .github/workflows/daily_alerts.yml):
 
-Reads subscribers from users.db (see user_accounts.py) and new filings from
-aup_dashboard.db (anything fetched in the last 24 hours).
+1. Subscriber digests — email each registered user a summary of the AUP
+   results ingested in the last 24 hours for the asset classes they chose.
+2. Owner digest — email the site owner the same activity summary plus any
+   NEW SIGNUPS in the last 24 hours.
 
-SMTP configuration via environment variables:
-    SMTP_HOST   e.g. smtp.gmail.com
-    SMTP_PORT   e.g. 587
-    SMTP_USER   login / from address
-    SMTP_PASS   password or app password
-    SMTP_FROM   optional from address (defaults to SMTP_USER)
+Accounts come from user_accounts (Google Sheets when configured, else the
+local users.db); filings come from aup_dashboard.db.
 
-Run wherever users.db lives (the machine hosting the dashboard).
+Configuration (environment variables; see also user_accounts.smtp_config):
+    SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS   mail login
+    SMTP_FROM                                       optional From override
+    ADMIN_EMAIL                                     owner alerts; default SMTP_USER
+    GOOGLE_SERVICE_ACCOUNT_JSON / USERS_SHEET_ID    Google Sheets accounts
+
+Exits 0 even when nothing is sent, so a quiet day is not a failed job.
 """
 
-import os
-import smtplib
 import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
-from email.mime.text import MIMEText
 from pathlib import Path
 
 import user_accounts
 
 DB_PATH = Path(__file__).parent / "aup_dashboard.db"
+SITE_URL = "https://bonddataquality.streamlit.app"
 
 ASSET_LABELS = {
     "auto": "Auto", "credit_card": "Credit Card", "consumer_loan": "Consumer Loans",
     "student_loan": "Student Loans", "small_business_loan": "Small Business Loans",
+    "datacenter": "Datacenter", "fiber": "Fiber",
     "nqm": "Non-Qualified Mortgage", "second_lien": "Second Lien",
     "rpl": "Re-Performing Loans", "prime_jumbo": "Prime Jumbo",
     "inv_property": "Investment Properties", "npl": "Non-Performing Loans",
-    "conduit": "Conduit CMBS", "cre_clo": "CRE-CLO",
+    "conduit": "Conduit CMBS", "cre_clo": "CRE-CLO", "large_loan": "Large-Loan CMBS",
 }
 
 
-def new_filings_since(hours: int = 24) -> list[sqlite3.Row]:
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+def label(asset_type: str) -> str:
+    return ASSET_LABELS.get(asset_type, asset_type or "Other")
+
+
+def new_filings_since(cutoff_iso: str) -> list[sqlite3.Row]:
+    if not DB_PATH.exists():
+        return []
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    rows = conn.execute(
-        """
-        SELECT f.issuer_key, f.deal_name, f.filed_date, f.asset_type,
-               f.aup_provider, p.sample_size, p.exception_count
-        FROM filings f LEFT JOIN procedures p ON p.filing_id = f.id
-        WHERE f.fetched_at >= ?
-        ORDER BY f.asset_type, f.filed_date DESC
-        """,
-        (cutoff,),
-    ).fetchall()
-    conn.close()
-    return rows
+    try:
+        return conn.execute(
+            """
+            SELECT f.issuer_key, f.deal_name, f.filed_date, f.asset_type,
+                   f.aup_provider, p.sample_size, p.exception_count
+            FROM filings f LEFT JOIN procedures p ON p.filing_id = f.id
+            WHERE f.fetched_at >= ?
+            ORDER BY f.asset_type, f.filed_date DESC
+            """,
+            (cutoff_iso,),
+        ).fetchall()
+    finally:
+        conn.close()
 
 
-def build_digest(rows: list[sqlite3.Row], subscribed_types: list[str]) -> str | None:
-    matches = [r for r in rows if r["asset_type"] in subscribed_types]
-    if not matches:
-        return None
-    lines = ["New ABS-15G AUP results in the last 24 hours:", ""]
-    cur_type = None
-    for r in matches:
-        if r["asset_type"] != cur_type:
-            cur_type = r["asset_type"]
-            lines.append(f"--- {ASSET_LABELS.get(cur_type, cur_type)} ---")
+def _format_filings(rows) -> list[str]:
+    lines, cur = [], None
+    for r in rows:
+        if r["asset_type"] != cur:
+            cur = r["asset_type"]
+            lines.append(f"--- {label(cur)} ---")
         exc = r["exception_count"]
-        exc_str = f"{exc} exception{'s' if exc != 1 else ''}" if exc is not None else "n/a"
+        exc_str = f"{exc} finding{'s' if exc != 1 else ''}" if exc is not None else "findings n/a"
         lines.append(
             f"  {r['filed_date']}  {r['deal_name'] or r['issuer_key']}"
             f"  (auditor: {r['aup_provider'] or 'n/a'}, sample: {r['sample_size'] or 'n/a'}, {exc_str})"
         )
-    lines += ["", "View details: https://bonddataquality.streamlit.app"]
+    return lines
+
+
+def build_subscriber_digest(rows, subscribed_types: list[str]) -> str | None:
+    matches = [r for r in rows if r["asset_type"] in subscribed_types]
+    if not matches:
+        return None
+    return "\n".join(
+        ["New ABS-15G AUP results in the last 24 hours:", ""]
+        + _format_filings(matches)
+        + ["", f"View details: {SITE_URL}"]
+    )
+
+
+def build_owner_digest(rows, signups: list[dict]) -> str | None:
+    if not rows and not signups:
+        return None
+    lines = ["Bond Data Quality — daily summary", ""]
+    if signups:
+        lines.append(f"NEW SIGNUPS ({len(signups)}):")
+        for u in signups:
+            name = f"{u['first_name']} {u['last_name']}".strip() or "(no name)"
+            subs = ", ".join(label(t) for t in u["subscriptions"]) or "none selected"
+            lines.append(f"  {name} <{u['email']}>")
+            lines.append(f"      company: {u['company'] or '-'}   phone: {u['phone'] or '-'}")
+            lines.append(f"      alerts:  {subs}")
+        lines.append("")
+    else:
+        lines += ["NEW SIGNUPS: none", ""]
+    if rows:
+        lines.append(f"NEW AUP RESULTS ({len(rows)}):")
+        lines += _format_filings(rows)
+    else:
+        lines.append("NEW AUP RESULTS: none")
+    lines += ["", SITE_URL]
     return "\n".join(lines)
 
 
 def main() -> int:
-    host = os.environ.get("SMTP_HOST")
-    user = os.environ.get("SMTP_USER")
-    pw = os.environ.get("SMTP_PASS")
-    if not (host and user and pw):
-        print("SMTP_HOST / SMTP_USER / SMTP_PASS not configured - nothing sent.")
+    if not user_accounts.mail_configured():
+        print("SMTP not configured (SMTP_HOST/SMTP_USER/SMTP_PASS) — nothing sent.")
         return 0
-    port = int(os.environ.get("SMTP_PORT", "587"))
-    sender = os.environ.get("SMTP_FROM", user)
 
-    rows = new_filings_since(24)
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    rows = new_filings_since(cutoff)
+    try:
+        signups = user_accounts.users_created_since(cutoff)
+    except Exception as exc:
+        print(f"Could not read new signups: {exc}")
+        signups = []
     subs = user_accounts.all_subscribers()
-    print(f"New filings (24h): {len(rows)}; subscribers with alerts: {len(subs)}")
-    if not rows or not subs:
-        return 0
+
+    print(f"accounts backend : {user_accounts.backend_name()}")
+    print(f"new filings (24h): {len(rows)}")
+    print(f"new signups (24h): {len(signups)}")
+    print(f"subscribers      : {len(subs)}")
 
     sent = 0
-    with smtplib.SMTP(host, port, timeout=30) as smtp:
-        smtp.starttls()
-        smtp.login(user, pw)
-        for s in subs:
-            body = build_digest(rows, s["subscriptions"])
-            if not body:
-                continue
-            msg = MIMEText(body)
-            msg["Subject"] = "Bond Data Quality - new AUP results"
-            msg["From"] = sender
-            msg["To"] = s["email"]
-            smtp.send_message(msg)
+    for s in subs:
+        body = build_subscriber_digest(rows, s["subscriptions"])
+        if body and user_accounts.send_email(
+            s["email"], "Bond Data Quality — new AUP results", body
+        ):
             sent += 1
-            print(f"  sent -> {s['email']}")
-    print(f"Done: {sent} email(s) sent.")
+            print(f"  digest -> {s['email']}")
+
+    owner_body = build_owner_digest(rows, signups)
+    if owner_body:
+        subject = (
+            f"Bond Data Quality — {len(signups)} new signup{'s' if len(signups) != 1 else ''}"
+            if signups else "Bond Data Quality — daily summary"
+        )
+        if user_accounts.send_email(user_accounts.admin_email(), subject, owner_body):
+            print(f"  owner summary -> {user_accounts.admin_email()}")
+        else:
+            print("  owner summary FAILED to send")
+
+    print(f"Done: {sent} subscriber email(s) sent.")
     return 0
 
 
