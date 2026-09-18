@@ -1641,7 +1641,8 @@ except Exception:
 _gc_code = (_gc_code or os.environ.get("GOATCOUNTER_CODE", "")).strip()
 # Accept a bare code ("mysite"), a host, or a full URL — keep the subdomain only
 _gc_code = re.sub(r"^https?://", "", _gc_code).split(".goatcounter.com")[0].strip("/")
-if _gc_code:
+# The keep-alive bot (keep_alive.py) visits with ?keepalive=1; don't count it
+if _gc_code and not _qp.get("keepalive"):
     _gc_path = f"/{nav_main}" + (f"/{nav_sub}" if nav_sub else "")
     _gc_rnd = int(datetime.now(timezone.utc).timestamp() * 1000)
     st.markdown(
